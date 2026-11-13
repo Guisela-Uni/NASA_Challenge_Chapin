@@ -417,3 +417,329 @@ for sensor in ["MODIS", "VIIRS"]:
         .head(5)
         .sort_values(ascending=False)
     )
+
+
+# ==========================================
+# COMPARACION ESPACIO-TEMPORAL
+# ==========================================
+
+print("\n===== COMPARACION ESPACIO-TEMPORAL =====")
+
+# Separar detecciones de vegetacion por sensor
+modis_eventos = datos_vegetacion[
+    datos_vegetacion["sensor"] == "MODIS"
+].copy()
+
+viirs_eventos = datos_vegetacion[
+    datos_vegetacion["sensor"] == "VIIRS"
+].copy()
+
+# Preparar columnas para identificar cada sensor
+columnas = [
+    "celda_x",
+    "celda_y",
+    "fecha_hora_utc"
+]
+
+modis_eventos = modis_eventos[columnas].rename(
+    columns={"fecha_hora_utc": "hora_modis"}
+)
+
+viirs_eventos = viirs_eventos[columnas].rename(
+    columns={"fecha_hora_utc": "hora_viirs"}
+)
+
+# Buscar pares que pertenecen a una misma celda
+pares = pd.merge(
+    modis_eventos,
+    viirs_eventos,
+    on=["celda_x", "celda_y"],
+    how="inner"
+)
+
+# Calcular diferencia temporal absoluta en horas
+pares["diferencia_horas"] = (
+    (pares["hora_modis"] - pares["hora_viirs"])
+    .abs()
+    .dt.total_seconds() / 3600
+)
+
+# Evitar comparar observaciones separadas por muchos dias
+pares = pares[
+    pares["diferencia_horas"] <= 6
+].copy()
+
+# Evaluar distintas ventanas temporales
+for ventana in [1, 3, 6]:
+    coincidencias = pares[
+        pares["diferencia_horas"] <= ventana
+    ]
+
+    print(f"\nVentana temporal: {ventana} horas")
+    print("Pares de detecciones:", len(coincidencias))
+
+    celdas = coincidencias[
+        ["celda_x", "celda_y", "hora_modis"]
+    ].drop_duplicates()
+
+    print(
+        "Celdas y horarios MODIS asociados:",
+        len(celdas)
+    )
+
+print("\nPrimeras coincidencias:")
+print(pares.head().to_string(index=False))
+
+
+
+# ==========================================
+# ASOCIACIONES SIN DUPLICAR MODIS
+# ==========================================
+
+print("\n===== ASOCIACIONES UNICAS MODIS-VIIRS =====")
+
+# Identificar cada deteccion individual
+modis_unicos = datos_vegetacion[
+    datos_vegetacion["sensor"] == "MODIS"
+].copy().reset_index(drop=True)
+
+viirs_unicos = datos_vegetacion[
+    datos_vegetacion["sensor"] == "VIIRS"
+].copy().reset_index(drop=True)
+
+modis_unicos["id_modis"] = modis_unicos.index
+viirs_unicos["id_viirs"] = viirs_unicos.index
+
+# Seleccionar columnas para comparar
+m = modis_unicos[
+    ["id_modis", "celda_x", "celda_y", "fecha_hora_utc"]
+].rename(columns={"fecha_hora_utc": "hora_modis"})
+
+v = viirs_unicos[
+    ["id_viirs", "celda_x", "celda_y", "fecha_hora_utc"]
+].rename(columns={"fecha_hora_utc": "hora_viirs"})
+
+# Asociar detecciones en la misma celda
+asociaciones = pd.merge(
+    m, v,
+    on=["celda_x", "celda_y"],
+    how="inner"
+)
+
+asociaciones["diferencia_horas"] = (
+    (asociaciones["hora_modis"] -
+     asociaciones["hora_viirs"]).abs()
+    .dt.total_seconds() / 3600
+)
+
+total_modis = len(modis_unicos)
+total_viirs = len(viirs_unicos)
+
+for ventana in [1, 3, 6]:
+    cercanas = asociaciones[
+        asociaciones["diferencia_horas"] <= ventana
+    ]
+
+    modis_asociados = cercanas["id_modis"].nunique()
+    viirs_asociados = cercanas["id_viirs"].nunique()
+
+    porcentaje_modis = (
+        100 * modis_asociados / total_modis
+    )
+
+    porcentaje_viirs = (
+        100 * viirs_asociados / total_viirs
+    )
+
+    print(f"\nVentana: {ventana} horas")
+    print("MODIS con asociacion:", modis_asociados)
+    print("VIIRS con asociacion:", viirs_asociados)
+    print(f"MODIS asociado: {porcentaje_modis:.2f}%")
+    print(f"VIIRS asociado: {porcentaje_viirs:.2f}%")
+
+
+
+# ==========================================
+# COMPARACION DE DISTANCIAS REALES
+# ==========================================
+
+print("\n===== DISTANCIAS ENTRE SENSORES =====")
+
+# Utilizar coordenadas proyectadas en metros
+columnas_modis = [
+    "id_modis", "celda_x", "celda_y",
+    "fecha_hora_utc", "x_metros", "y_metros"
+]
+
+columnas_viirs = [
+    "id_viirs", "celda_x", "celda_y",
+    "fecha_hora_utc", "x_metros", "y_metros"
+]
+
+m_dist = modis_unicos[columnas_modis].rename(
+    columns={
+        "fecha_hora_utc": "hora_modis",
+        "x_metros": "x_modis",
+        "y_metros": "y_modis"
+    }
+)
+
+v_dist = viirs_unicos[columnas_viirs].rename(
+    columns={
+        "fecha_hora_utc": "hora_viirs",
+        "x_metros": "x_viirs",
+        "y_metros": "y_viirs"
+    }
+)
+
+# Comparar detecciones en una misma celda
+pares_distancia = pd.merge(
+    m_dist,
+    v_dist,
+    on=["celda_x", "celda_y"],
+    how="inner"
+)
+
+# Distancia euclidiana en coordenadas proyectadas
+pares_distancia["distancia_metros"] = np.sqrt(
+    (pares_distancia["x_modis"] -
+     pares_distancia["x_viirs"]) ** 2
+    +
+    (pares_distancia["y_modis"] -
+     pares_distancia["y_viirs"]) ** 2
+)
+
+# Diferencia temporal en horas
+pares_distancia["diferencia_horas"] = (
+    (pares_distancia["hora_modis"] -
+     pares_distancia["hora_viirs"]).abs()
+    .dt.total_seconds() / 3600
+)
+
+# Evaluar diferentes distancias
+for distancia in [1000, 2000, 5000]:
+    cercanos = pares_distancia[
+        (pares_distancia["distancia_metros"] <= distancia)
+        & (pares_distancia["diferencia_horas"] <= 3)
+    ]
+
+    print(f"\nDistancia maxima: {distancia} metros")
+    print("Pares encontrados:", len(cercanos))
+    print(
+        "MODIS asociados:",
+        cercanos["id_modis"].nunique()
+    )
+    print(
+        "VIIRS asociados:",
+        cercanos["id_viirs"].nunique()
+    )
+
+print("\nEstadisticas de distancia (hasta 3 horas):")
+
+distancias_3h = pares_distancia[
+    pares_distancia["diferencia_horas"] <= 3
+]
+
+print(
+    distancias_3h["distancia_metros"].describe()
+)
+
+
+
+# ==========================================
+# BUSQUEDA ESPACIAL SIN LIMITES DE CELDA
+# ==========================================
+
+from scipy.spatial import cKDTree
+
+print("\n===== BUSQUEDA ESPACIAL MEJORADA =====")
+
+# Coordenadas proyectadas de ambos sensores
+coords_modis = modis_unicos[
+    ["x_metros", "y_metros"]
+].to_numpy()
+
+coords_viirs = viirs_unicos[
+    ["x_metros", "y_metros"]
+].to_numpy()
+
+# Crear indice espacial para VIIRS
+arbol_viirs = cKDTree(coords_viirs)
+
+# Buscar candidatos a 5 km de cada deteccion MODIS
+vecinos = arbol_viirs.query_ball_point(
+    coords_modis,
+    r=5000
+)
+
+# Crear pares candidatos
+indices_modis = []
+indices_viirs = []
+
+for i, lista_vecinos in enumerate(vecinos):
+    for j in lista_vecinos:
+        indices_modis.append(i)
+        indices_viirs.append(j)
+
+# Construir tabla de asociaciones
+pares_vecinos = pd.DataFrame({
+    "id_modis": indices_modis,
+    "id_viirs": indices_viirs
+})
+
+if not pares_vecinos.empty:
+
+    # Calcular distancia entre cada pareja
+    diferencias = (
+        coords_modis[pares_vecinos["id_modis"].to_numpy()]
+        - coords_viirs[pares_vecinos["id_viirs"].to_numpy()]
+    )
+
+    pares_vecinos["distancia_metros"] = np.sqrt(
+        (diferencias ** 2).sum(axis=1)
+    )
+
+    # Calcular diferencia temporal
+    tiempos_modis = modis_unicos[
+        "fecha_hora_utc"
+    ].reset_index(drop=True)
+
+    tiempos_viirs = viirs_unicos[
+        "fecha_hora_utc"
+    ].reset_index(drop=True)
+
+    horas_m = tiempos_modis.iloc[
+        pares_vecinos["id_modis"].to_numpy()
+    ].reset_index(drop=True)
+
+    horas_v = tiempos_viirs.iloc[
+        pares_vecinos["id_viirs"].to_numpy()
+    ].reset_index(drop=True)
+
+    pares_vecinos["diferencia_horas"] = (
+        (horas_m - horas_v)
+        .abs()
+        .dt.total_seconds() / 3600
+    )
+
+    # Evaluar distancias con ventana de 3 horas
+    for distancia in [1000, 2000, 5000]:
+
+        cercanos = pares_vecinos[
+            (pares_vecinos["distancia_metros"] <= distancia)
+            & (pares_vecinos["diferencia_horas"] <= 3)
+        ]
+
+        print(f"\nDistancia maxima: {distancia} m")
+        print("Pares:", len(cercanos))
+        print(
+            "MODIS asociados:",
+            cercanos["id_modis"].nunique()
+        )
+        print(
+            "VIIRS asociados:",
+            cercanos["id_viirs"].nunique()
+        )
+
+else:
+    print("No se encontraron pares espaciales.")

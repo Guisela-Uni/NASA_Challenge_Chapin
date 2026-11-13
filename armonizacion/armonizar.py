@@ -66,6 +66,54 @@ datos_unificados = pd.concat(
     ignore_index=True
 )
 
+
+# ==========================================
+# FILTRADO GEOGRAFICO DE GUATEMALA
+# ==========================================
+
+import json
+from shapely.geometry import Point, shape
+
+# Abrir el archivo con el contorno de Guatemala
+archivo_geojson = carpeta_datos / "guatemala.geojson"
+
+with open(archivo_geojson, "r", encoding="utf-8") as archivo:
+    geojson = json.load(archivo)
+
+# Obtener la geometria del pais
+if geojson["type"] == "FeatureCollection":
+    geometria = shape(geojson["features"][0]["geometry"])
+elif geojson["type"] == "Feature":
+    geometria = shape(geojson["geometry"])
+else:
+    geometria = shape(geojson)
+
+# Comprobar si cada deteccion pertenece a Guatemala
+dentro_guatemala = datos_unificados.apply(
+    lambda fila: geometria.covers(
+        Point(fila["longitude"], fila["latitude"])
+    ),
+    axis=1
+)
+
+# Guardar cantidad de registros antes del filtro
+total_antes = len(datos_unificados)
+
+# Conservar solamente los registros dentro del pais
+datos_unificados = datos_unificados[
+    dentro_guatemala
+].copy()
+
+# Mostrar resultados
+print("\n===== FILTRADO GEOGRAFICO =====")
+print("Registros originales:", total_antes)
+print("Registros dentro de Guatemala:", len(datos_unificados))
+print("Registros excluidos:", total_antes - len(datos_unificados))
+
+print("\nRegistros por sensor despues del filtro:")
+print(datos_unificados["sensor"].value_counts())
+
+
 # Ordenar por fecha
 datos_unificados = datos_unificados.sort_values(
     by="fecha"

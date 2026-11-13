@@ -743,3 +743,171 @@ if not pares_vecinos.empty:
 
 else:
     print("No se encontraron pares espaciales.")
+
+
+
+# ==========================================
+# GENERACION DEL CALENDARIO ARMONIZADO
+# ==========================================
+
+from pathlib import Path
+
+print("\n===== CALENDARIO ARMONIZADO =====")
+
+# Agrupar por fecha local, celda geografica y sensor
+conteos_calendario = (
+    datos_vegetacion
+    .groupby(
+        ["fecha_gt", "celda_x", "celda_y", "sensor"]
+    )
+    .size()
+    .unstack("sensor", fill_value=0)
+    .reindex(columns=["MODIS", "VIIRS"], fill_value=0)
+    .reset_index()
+)
+
+# Identificar sensores presentes
+conteos_calendario["ambos_sensores"] = (
+    (conteos_calendario["MODIS"] > 0)
+    & (conteos_calendario["VIIRS"] > 0)
+)
+
+def clasificar_fuente(fila):
+    if fila["ambos_sensores"]:
+        return "MODIS y VIIRS"
+    elif fila["MODIS"] > 0:
+        return "Solo MODIS"
+    else:
+        return "Solo VIIRS"
+
+conteos_calendario["fuente"] = (
+    conteos_calendario.apply(
+        clasificar_fuente, axis=1
+    )
+)
+
+# Asociaciones espacio-temporales de 2 km y 3 horas
+asociaciones_validas = pares_vecinos[
+    (pares_vecinos["distancia_metros"] <= 2000)
+    & (pares_vecinos["diferencia_horas"] <= 3)
+]
+
+# Identificar las detecciones que tienen asociacion
+ids_modis = set(asociaciones_validas["id_modis"])
+ids_viirs = set(asociaciones_validas["id_viirs"])
+
+modis_unicos["asociado"] = (
+    modis_unicos["id_modis"].isin(ids_modis)
+)
+
+viirs_unicos["asociado"] = (
+    viirs_unicos["id_viirs"].isin(ids_viirs)
+)
+
+# Reunir los datos con el indicador de asociacion
+datos_asociados = pd.concat(
+    [modis_unicos, viirs_unicos],
+    ignore_index=True
+)
+
+# Contar observaciones asociadas por celda y fecha local
+conteos_asociados = (
+    datos_asociados
+    .groupby(["fecha_gt", "celda_x", "celda_y"])
+    ["asociado"]
+    .sum()
+    .reset_index(name="detecciones_asociadas")
+)
+
+# Incorporar asociaciones al calendario
+calendario = conteos_calendario.merge(
+    conteos_asociados,
+    on=["fecha_gt", "celda_x", "celda_y"],
+    how="left"
+)
+
+calendario["detecciones_asociadas"] = (
+    calendario["detecciones_asociadas"]
+    .fillna(0)
+    .astype(int)
+)
+
+# Indicador de presencia de actividad termica
+calendario["actividad_detectada"] = True
+
+# Guardar CSV
+carpeta_salida = Path("armonizacion") / "resultados"
+carpeta_salida.mkdir(parents=True, exist_ok=True)
+
+ruta_salida = carpeta_salida / "calendario_armonizado.csv"
+
+calendario.to_csv(
+    ruta_salida,
+    index=False,
+    encoding="utf-8-sig"
+)
+
+print("Total de celdas-dia:", len(calendario))
+
+print("\nRegistros por fuente:")
+print(calendario["fuente"].value_counts())
+
+print("\nPrimeras filas:")
+print(calendario.head().to_string(index=False))
+
+print("\nArchivo generado en:")
+print(ruta_salida)
+
+
+# ==========================================
+# VALIDACION DEL CALENDARIO
+# ==========================================
+
+print("\n===== VALIDACION DEL CALENDARIO =====")
+
+total_original = len(datos_vegetacion)
+
+total_calendario = (
+    calendario["MODIS"].sum()
+    + calendario["VIIRS"].sum()
+)
+
+print("Detecciones originales:", total_original)
+print("Detecciones en calendario:", total_calendario)
+
+assert total_original == total_calendario, (
+    "ERROR: No coinciden las detecciones"
+)
+
+# Comprobar que no existan celdas-dia repetidas
+duplicados = calendario.duplicated(
+    subset=["fecha_gt", "celda_x", "celda_y"]
+).sum()
+
+print("Celdas-dia duplicadas:", duplicados)
+
+assert duplicados == 0, (
+    "ERROR: Existen celdas-dia duplicadas"
+)
+
+# Verificar asociaciones
+total_asociadas = calendario[
+    "detecciones_asociadas"
+].sum()
+
+print("Detecciones asociadas:", total_asociadas)
+
+assert total_asociadas <= total_original, (
+    "ERROR: Asociaciones inconsistentes"
+)
+
+# Verificar valores faltantes
+faltantes = calendario.isna().sum().sum()
+
+print("Valores faltantes:", faltantes)
+
+assert faltantes == 0, (
+    "ERROR: Existen valores faltantes"
+)
+
+print("\nVALIDACION COMPLETADA CORRECTAMENTE")

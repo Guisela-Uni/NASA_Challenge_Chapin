@@ -144,32 +144,41 @@ import numpy as np
 # Convertimos las coordenadas geográficas a kilómetros
 # mediante una proyección local sencilla.
 
-latitud_referencia = 15.5
 
-km_por_grado_latitud = 111.32
-km_por_grado_longitud = (
-    111.32 * np.cos(np.radians(latitud_referencia))
+from pyproj import Transformer
+
+# ==========================================
+# CUADRICULA ESPACIAL EN METROS
+# ==========================================
+
+# WGS84: coordenadas originales de NASA
+# UTM zona 15N: proyeccion para el analisis
+transformador = Transformer.from_crs(
+    "EPSG:4326",
+    "EPSG:32615",
+    always_xy=True
 )
 
-tamano_celda_km = 5
-
-# Coordenadas aproximadas en kilómetros
-datos_unificados["x_km"] = (
-    datos_unificados["longitude"] * km_por_grado_longitud
+# Convertir longitud y latitud a coordenadas UTM
+x_metros, y_metros = transformador.transform(
+    datos_unificados["longitude"].to_numpy(),
+    datos_unificados["latitude"].to_numpy()
 )
 
-datos_unificados["y_km"] = (
-    datos_unificados["latitude"] * km_por_grado_latitud
-)
+datos_unificados["x_metros"] = x_metros
+datos_unificados["y_metros"] = y_metros
 
-# Asignar cada detección a una celda
+# Definir celdas de 5 km
+tamano_celda_metros = 5000
+
 datos_unificados["celda_x"] = np.floor(
-    datos_unificados["x_km"] / tamano_celda_km
+    datos_unificados["x_metros"] / tamano_celda_metros
 ).astype(int)
 
 datos_unificados["celda_y"] = np.floor(
-    datos_unificados["y_km"] / tamano_celda_km
+    datos_unificados["y_metros"] / tamano_celda_metros
 ).astype(int)
+
 
 # Contar detecciones por fecha, celda y sensor
 agrupados = (
@@ -230,3 +239,85 @@ print(
 
 print("\nPrimeras filas:")
 print(comparacion.head())
+
+
+# ==========================================
+# ANALISIS DE CALIDAD DE LAS DETECCIONES
+# ==========================================
+
+print("\n===== CALIDAD DE LOS DATOS =====")
+
+# Separar las detecciones por sensor
+modis_calidad = datos_unificados[
+    datos_unificados["sensor"] == "MODIS"
+].copy()
+
+viirs_calidad = datos_unificados[
+    datos_unificados["sensor"] == "VIIRS"
+].copy()
+
+# Convertir confianza MODIS a numero
+modis_calidad["confidence"] = pd.to_numeric(
+    modis_calidad["confidence"],
+    errors="coerce"
+)
+
+print("\nMODIS - Estadisticas de confianza:")
+print(modis_calidad["confidence"].describe())
+
+print("\nVIIRS - Categorias de confianza:")
+print(viirs_calidad["confidence"].value_counts(dropna=False))
+
+# Revisar valores faltantes
+print("\nValores faltantes MODIS:")
+print(modis_calidad.isnull().sum())
+
+print("\nValores faltantes VIIRS:")
+print(viirs_calidad.isnull().sum())
+
+# Revisar detecciones diurnas y nocturnas
+print("\nMODIS - Dia y noche:")
+print(modis_calidad["daynight"].value_counts())
+
+print("\nVIIRS - Dia y noche:")
+print(viirs_calidad["daynight"].value_counts())
+
+# Revisar tipos de deteccion
+print("\nMODIS - Tipos:")
+print(modis_calidad["type"].value_counts(dropna=False))
+
+print("\nVIIRS - Tipos:")
+print(viirs_calidad["type"].value_counts(dropna=False))
+
+
+# ==========================================
+# SELECCION DE INCENDIOS DE VEGETACION
+# ==========================================
+
+# Conservar solamente detecciones tipo 0
+datos_vegetacion = datos_unificados[
+    datos_unificados["type"] == 0
+].copy()
+
+print("\n===== INCENDIOS DE VEGETACION =====")
+
+print("Detecciones originales:", len(datos_unificados))
+print("Detecciones tipo 0:", len(datos_vegetacion))
+
+print("\nDetecciones por sensor:")
+print(datos_vegetacion["sensor"].value_counts())
+
+# Revisar la distribucion de confianza
+print("\nConfianza MODIS:")
+print(
+    datos_vegetacion[
+        datos_vegetacion["sensor"] == "MODIS"
+    ]["confidence"].value_counts().head()
+)
+
+print("\nConfianza VIIRS:")
+print(
+    datos_vegetacion[
+        datos_vegetacion["sensor"] == "VIIRS"
+    ]["confidence"].value_counts()
+)

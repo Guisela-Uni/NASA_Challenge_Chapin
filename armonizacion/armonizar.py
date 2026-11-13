@@ -180,9 +180,72 @@ datos_unificados["celda_y"] = np.floor(
 ).astype(int)
 
 
+# ==========================================
+# FILTRO DE INCENDIOS DE VEGETACION
+# ==========================================
+
+# Conservar solamente detecciones tipo 0
+datos_vegetacion = datos_unificados[
+    datos_unificados["type"] == 0
+].copy()
+
+
+# ==========================================
+# PREPARACION TEMPORAL
+# ==========================================
+
+# Convertir HHMM a cuatro digitos
+hora_texto = (
+    datos_vegetacion["acq_time"]
+    .astype(str)
+    .str.zfill(4)
+)
+
+# Construir fecha y hora completa en UTC
+datos_vegetacion["fecha_hora_utc"] = pd.to_datetime(
+    datos_vegetacion["fecha"].dt.strftime("%Y-%m-%d")
+    + " "
+    + hora_texto.str[:2]
+    + ":"
+    + hora_texto.str[2:],
+    format="%Y-%m-%d %H:%M",
+    utc=True
+)
+
+# Convertir a horario de Guatemala (UTC-6)
+datos_vegetacion["fecha_hora_gt"] = (
+    datos_vegetacion["fecha_hora_utc"]
+    .dt.tz_convert("America/Guatemala")
+)
+
+# Obtener la fecha local
+datos_vegetacion["fecha_gt"] = (
+    datos_vegetacion["fecha_hora_gt"].dt.date
+)
+
+print("\n===== PREPARACION TEMPORAL =====")
+
+print(
+    datos_vegetacion[
+        [
+            "sensor",
+            "fecha",
+            "acq_time",
+            "fecha_hora_utc",
+            "fecha_hora_gt",
+            "fecha_gt"
+        ]
+    ].head(10).to_string(index=False)
+)
+
+print("\nRegistros con hora invalida:")
+print(datos_vegetacion["fecha_hora_utc"].isna().sum())
+
+
+
 # Contar detecciones por fecha, celda y sensor
 agrupados = (
-    datos_unificados
+    datos_vegetacion
     .groupby(
         ["fecha", "celda_x", "celda_y", "sensor"]
     )
@@ -294,11 +357,6 @@ print(viirs_calidad["type"].value_counts(dropna=False))
 # SELECCION DE INCENDIOS DE VEGETACION
 # ==========================================
 
-# Conservar solamente detecciones tipo 0
-datos_vegetacion = datos_unificados[
-    datos_unificados["type"] == 0
-].copy()
-
 print("\n===== INCENDIOS DE VEGETACION =====")
 
 print("Detecciones originales:", len(datos_unificados))
@@ -321,3 +379,41 @@ print(
         datos_vegetacion["sensor"] == "VIIRS"
     ]["confidence"].value_counts()
 )
+
+
+
+# ==========================================
+# COMPARACION DE HORARIOS ENTRE SENSORES
+# ==========================================
+
+print("\n===== HORARIOS DE OBSERVACION =====")
+
+# Extraer hora local de cada deteccion
+datos_vegetacion["hora_gt"] = (
+    datos_vegetacion["fecha_hora_gt"].dt.hour
+)
+
+# Contar detecciones por hora y sensor
+horarios = pd.crosstab(
+    datos_vegetacion["hora_gt"],
+    datos_vegetacion["sensor"]
+)
+
+print("\nDetecciones por hora local:")
+print(horarios.to_string())
+
+# Identificar horas mas frecuentes
+print("\nHoras con mayor cantidad de detecciones:")
+
+for sensor in ["MODIS", "VIIRS"]:
+    datos_sensor = datos_vegetacion[
+        datos_vegetacion["sensor"] == sensor
+    ]
+
+    print(f"\n{sensor}:")
+    print(
+        datos_sensor["hora_gt"]
+        .value_counts()
+        .head(5)
+        .sort_values(ascending=False)
+    )

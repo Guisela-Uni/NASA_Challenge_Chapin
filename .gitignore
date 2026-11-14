@@ -1,0 +1,12 @@
+# Python genera estos archivos solo, en cada computadora
+__pycache__/
+*.pyc
+
+# Entorno virtual: cada quien crea el suyo
+venv/
+.venv/
+
+# Basura del sistema operativo y del editor
+Thumbs.db
+.DS_Store
+.vscode/

@@ -911,3 +911,107 @@ assert faltantes == 0, (
 )
 
 print("\nVALIDACION COMPLETADA CORRECTAMENTE")
+
+
+# ==========================================
+# COORDENADAS PARA VISUALIZACION
+# ==========================================
+
+print("\n===== COORDENADAS DEL CALENDARIO =====")
+
+# Ubicacion promedio de las detecciones por celda y fecha
+ubicaciones = (
+    datos_vegetacion
+    .groupby(["fecha_gt", "celda_x", "celda_y"])
+    .agg(
+        latitude=("latitude", "mean"),
+        longitude=("longitude", "mean")
+    )
+    .reset_index()
+)
+
+# Incorporar coordenadas al calendario
+calendario = calendario.merge(
+    ubicaciones,
+    on=["fecha_gt", "celda_x", "celda_y"],
+    how="left",
+    validate="one_to_one"
+)
+
+# Comprobar que todas las celdas tengan coordenadas
+assert calendario[["latitude", "longitude"]].notna().all().all(), (
+    "ERROR: Existen celdas sin coordenadas"
+)
+
+# Actualizar el archivo CSV
+calendario.to_csv(
+    ruta_salida,
+    index=False,
+    encoding="utf-8-sig"
+)
+
+print("Total de celdas-dia:", len(calendario))
+
+print("\nPrimeras filas con coordenadas:")
+print(
+    calendario[
+        ["fecha_gt", "latitude", "longitude",
+         "MODIS", "VIIRS", "fuente"]
+    ].head().to_string(index=False)
+)
+
+print("\nCSV actualizado correctamente")
+
+
+
+# ==========================================
+# RESUMEN DIARIO DE ACTIVIDAD TERMICA
+# ==========================================
+
+print("\n===== RESUMEN DIARIO =====")
+
+resumen_diario = (
+    calendario
+    .groupby("fecha_gt")
+    .agg(
+        celdas_activas=("actividad_detectada", "sum"),
+        detecciones_modis=("MODIS", "sum"),
+        detecciones_viirs=("VIIRS", "sum"),
+        celdas_ambos=("ambos_sensores", "sum"),
+        detecciones_asociadas=("detecciones_asociadas", "sum")
+    )
+    .reset_index()
+)
+
+# Total de observaciones satelitales por fecha
+resumen_diario["total_detecciones"] = (
+    resumen_diario["detecciones_modis"]
+    + resumen_diario["detecciones_viirs"]
+)
+
+# Ordenar cronologicamente
+resumen_diario = resumen_diario.sort_values(
+    "fecha_gt"
+)
+
+# Guardar resumen
+ruta_resumen = (
+    carpeta_salida / "resumen_diario.csv"
+)
+
+resumen_diario.to_csv(
+    ruta_resumen,
+    index=False,
+    encoding="utf-8-sig"
+)
+
+print("Dias registrados:", len(resumen_diario))
+
+print("\nPrimeros dias:")
+print(resumen_diario.head(10).to_string(index=False))
+
+print("\nTotal de detecciones:")
+print(resumen_diario["total_detecciones"].sum())
+
+print("\nArchivo generado:")
+print(ruta_resumen)

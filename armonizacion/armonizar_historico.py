@@ -11,8 +11,14 @@ carpeta_datos = carpeta_modulo / "datos"
 # Archivos historicos de prueba (2024)
 carpeta_pruebas = carpeta_datos / "pruebas_historicas"
 
-archivo_modis = carpeta_pruebas / "modis_2024.csv"
-archivo_viirs = carpeta_pruebas / "viirs_2024.csv"
+# Carpeta principal del proyecto
+carpeta_proyecto = carpeta_modulo.parent
+
+# Archivos historicos completos
+carpeta_historicos = carpeta_proyecto / "Recopilacion_de_datos"
+
+archivo_modis = carpeta_historicos / "modis_historico.csv"
+archivo_viirs = carpeta_historicos / "viirs_historico.csv"
 
 # Leer los archivos CSV
 modis = pd.read_csv(archivo_modis)
@@ -77,7 +83,8 @@ datos_unificados = pd.concat(
 # ==========================================
 
 import json
-from shapely.geometry import Point, shape
+from shapely.geometry import shape
+from shapely import points, covers
 
 # Abrir el archivo con el contorno de Guatemala
 archivo_geojson = carpeta_datos / "guatemala.geojson"
@@ -93,14 +100,15 @@ elif geojson["type"] == "Feature":
 else:
     geometria = shape(geojson)
 
-# Comprobar si cada deteccion pertenece a Guatemala
-dentro_guatemala = datos_unificados.apply(
-    lambda fila: geometria.covers(
-        Point(fila["longitude"], fila["latitude"])
-    ),
-    axis=1
+# Comprobar de forma vectorizada si las detecciones
+# se encuentran dentro del territorio de Guatemala
+
+puntos = points(
+    datos_unificados["longitude"].to_numpy(),
+    datos_unificados["latitude"].to_numpy()
 )
 
+dentro_guatemala = covers(geometria, puntos)
 # Guardar cantidad de registros antes del filtro
 total_antes = len(datos_unificados)
 
@@ -262,183 +270,6 @@ print(
 print("\nRegistros con hora invalida:")
 print(datos_vegetacion["fecha_hora_utc"].isna().sum())
 
-
-
-# Contar detecciones por fecha, celda y sensor
-agrupados = (
-    datos_vegetacion
-    .groupby(
-        ["fecha", "celda_x", "celda_y", "sensor"]
-    )
-    .size()
-    .reset_index(name="detecciones")
-)
-
-# Convertir MODIS y VIIRS en columnas separadas
-comparacion = agrupados.pivot_table(
-    index=["fecha", "celda_x", "celda_y"],
-    columns="sensor",
-    values="detecciones",
-    fill_value=0,
-    aggfunc="sum"
-).reset_index()
-
-# Asegurar que existan ambas columnas
-for sensor in ["MODIS", "VIIRS"]:
-    if sensor not in comparacion.columns:
-        comparacion[sensor] = 0
-
-comparacion.columns.name = None
-
-# Identificar coincidencias espaciales y temporales
-comparacion["ambos_sensores"] = (
-    (comparacion["MODIS"] > 0) &
-    (comparacion["VIIRS"] > 0)
-)
-
-# Mostrar resultados
-print("\n===== COMPARACION ESPACIAL Y TEMPORAL =====")
-print("Celdas-día con actividad:", len(comparacion))
-
-print(
-    "Celdas-día detectadas por ambos sensores:",
-    comparacion["ambos_sensores"].sum()
-)
-
-print(
-    "Celdas-día solo MODIS:",
-    (
-        (comparacion["MODIS"] > 0) &
-        (comparacion["VIIRS"] == 0)
-    ).sum()
-)
-
-print(
-    "Celdas-día solo VIIRS:",
-    (
-        (comparacion["MODIS"] == 0) &
-        (comparacion["VIIRS"] > 0)
-    ).sum()
-)
-
-print("\nPrimeras filas:")
-print(comparacion.head())
-
-
-# ==========================================
-# ANALISIS DE CALIDAD DE LAS DETECCIONES
-# ==========================================
-
-print("\n===== CALIDAD DE LOS DATOS =====")
-
-# Separar las detecciones por sensor
-modis_calidad = datos_unificados[
-    datos_unificados["sensor"] == "MODIS"
-].copy()
-
-viirs_calidad = datos_unificados[
-    datos_unificados["sensor"] == "VIIRS"
-].copy()
-
-# Convertir confianza MODIS a numero
-modis_calidad["confidence"] = pd.to_numeric(
-    modis_calidad["confidence"],
-    errors="coerce"
-)
-
-print("\nMODIS - Estadisticas de confianza:")
-print(modis_calidad["confidence"].describe())
-
-print("\nVIIRS - Categorias de confianza:")
-print(viirs_calidad["confidence"].value_counts(dropna=False))
-
-# Revisar valores faltantes
-print("\nValores faltantes MODIS:")
-print(modis_calidad.isnull().sum())
-
-print("\nValores faltantes VIIRS:")
-print(viirs_calidad.isnull().sum())
-
-# Revisar detecciones diurnas y nocturnas
-print("\nMODIS - Dia y noche:")
-print(modis_calidad["daynight"].value_counts())
-
-print("\nVIIRS - Dia y noche:")
-print(viirs_calidad["daynight"].value_counts())
-
-# Revisar tipos de deteccion
-print("\nMODIS - Tipos:")
-print(modis_calidad["type"].value_counts(dropna=False))
-
-print("\nVIIRS - Tipos:")
-print(viirs_calidad["type"].value_counts(dropna=False))
-
-
-# ==========================================
-# SELECCION DE INCENDIOS DE VEGETACION
-# ==========================================
-
-print("\n===== INCENDIOS DE VEGETACION =====")
-
-print("Detecciones originales:", len(datos_unificados))
-print("Detecciones tipo 0:", len(datos_vegetacion))
-
-print("\nDetecciones por sensor:")
-print(datos_vegetacion["sensor"].value_counts())
-
-# Revisar la distribucion de confianza
-print("\nConfianza MODIS:")
-print(
-    datos_vegetacion[
-        datos_vegetacion["sensor"] == "MODIS"
-    ]["confidence"].value_counts().head()
-)
-
-print("\nConfianza VIIRS:")
-print(
-    datos_vegetacion[
-        datos_vegetacion["sensor"] == "VIIRS"
-    ]["confidence"].value_counts()
-)
-
-
-
-# ==========================================
-# COMPARACION DE HORARIOS ENTRE SENSORES
-# ==========================================
-
-print("\n===== HORARIOS DE OBSERVACION =====")
-
-# Extraer hora local de cada deteccion
-datos_vegetacion["hora_gt"] = (
-    datos_vegetacion["fecha_hora_gt"].dt.hour
-)
-
-# Contar detecciones por hora y sensor
-horarios = pd.crosstab(
-    datos_vegetacion["hora_gt"],
-    datos_vegetacion["sensor"]
-)
-
-print("\nDetecciones por hora local:")
-print(horarios.to_string())
-
-# Identificar horas mas frecuentes
-print("\nHoras con mayor cantidad de detecciones:")
-
-for sensor in ["MODIS", "VIIRS"]:
-    datos_sensor = datos_vegetacion[
-        datos_vegetacion["sensor"] == sensor
-    ]
-
-    print(f"\n{sensor}:")
-    print(
-        datos_sensor["hora_gt"]
-        .value_counts()
-        .head(5)
-        .sort_values(ascending=False)
-    )
-
 # ==========================================
 # PREPARACION DE DETECCIONES POR SENSOR
 # ==========================================
@@ -482,8 +313,16 @@ viirs_por_dia = {
     for dia, grupo in viirs_unicos.groupby("dia_utc")
 }
 
+# Mostrar el progreso de la armonizacion por año
+anio_actual = None
+
 # Procesar MODIS por dia UTC
 for dia, grupo_modis in modis_unicos.groupby("dia_utc"):
+
+    # Avisar cuando comienza un nuevo año
+    if dia.year != anio_actual:
+        anio_actual = dia.year
+        print(f"Procesando asociaciones del año {anio_actual}...", flush=True)
 
     # Considerar el dia anterior, actual y siguiente
     dias_busqueda = [
@@ -528,44 +367,36 @@ for dia, grupo_modis in modis_unicos.groupby("dia_utc"):
         coords_modis,
         r=distancia_maxima + margen_busqueda
     )
+
+    # Preparar arreglos para consultar los datos rapidamente
+    horas_modis = grupo_modis["fecha_hora_utc"].to_numpy()
+    horas_viirs = candidatos_viirs["fecha_hora_utc"].to_numpy()
+    ids_modis = grupo_modis["id_modis"].to_numpy()
+    ids_viirs = candidatos_viirs["id_viirs"].to_numpy()
+
     # Evaluar cada pareja candidata
     for i, lista_vecinos in enumerate(vecinos):
 
-        deteccion_modis = grupo_modis.iloc[i]
-
         for j in lista_vecinos:
 
-            deteccion_viirs = candidatos_viirs.iloc[j]
-
-            # Diferencia temporal en horas
+            # Diferencia temporal en horas utilizando NumPy
             diferencia_horas = abs(
-                (
-                    deteccion_modis["fecha_hora_utc"]
-                    - deteccion_viirs["fecha_hora_utc"]
-                ).total_seconds()
-            ) / 3600
+                (horas_modis[i] - horas_viirs[j])
+                / np.timedelta64(1, "h")
+            )
 
             if diferencia_horas > ventana_horas:
                 continue
 
-            # Distancia espacial en metros
-            diferencia_x = (
-                deteccion_modis["x_metros"]
-                - deteccion_viirs["x_metros"]
-            )
+            # Distancia espacial utilizando arreglos NumPy
+            diferencia_x = coords_modis[i, 0] - coords_viirs[j, 0]
+            diferencia_y = coords_modis[i, 1] - coords_viirs[j, 1]
 
-            diferencia_y = (
-                deteccion_modis["y_metros"]
-                - deteccion_viirs["y_metros"]
-            )
-
-            distancia = (
-                diferencia_x**2 + diferencia_y**2
-            ) ** 0.5
+            distancia = np.hypot(diferencia_x, diferencia_y)
 
             asociaciones_encontradas.append({
-                "id_modis": deteccion_modis["id_modis"],
-                "id_viirs": deteccion_viirs["id_viirs"],
+                "id_modis": int(ids_modis[i]),
+                "id_viirs": int(ids_viirs[j]),
                 "distancia_metros": distancia,
                 "diferencia_horas": diferencia_horas
             })
@@ -578,32 +409,39 @@ from pyproj import Geod
 
 geod = Geod(ellps="WGS84")
 
-# Recuperar coordenadas originales de cada deteccion
-for asociacion in asociaciones_encontradas:
+if asociaciones_encontradas:
 
-    deteccion_m = modis_unicos.iloc[
-        int(asociacion["id_modis"])
-    ]
+    # Convertir asociaciones a una tabla temporal
+    asociaciones_temp = pd.DataFrame(asociaciones_encontradas)
 
-    deteccion_v = viirs_unicos.iloc[
-        int(asociacion["id_viirs"])
-    ]
+    # Obtener identificadores de cada pareja
+    indices_modis = asociaciones_temp["id_modis"].to_numpy(dtype=int)
+    indices_viirs = asociaciones_temp["id_viirs"].to_numpy(dtype=int)
 
-    _, _, distancia_real = geod.inv(
-        deteccion_m["longitude"],
-        deteccion_m["latitude"],
-        deteccion_v["longitude"],
-        deteccion_v["latitude"]
+    # Recuperar coordenadas originales
+    longitudes_modis = modis_unicos["longitude"].to_numpy()[indices_modis]
+    latitudes_modis = modis_unicos["latitude"].to_numpy()[indices_modis]
+
+    longitudes_viirs = viirs_unicos["longitude"].to_numpy()[indices_viirs]
+    latitudes_viirs = viirs_unicos["latitude"].to_numpy()[indices_viirs]
+
+    # Calcular distancias geodesicas para todas las parejas
+    _, _, distancias_reales = geod.inv(
+        longitudes_modis,
+        latitudes_modis,
+        longitudes_viirs,
+        latitudes_viirs
     )
 
-    asociacion["distancia_metros"] = distancia_real
+    # Actualizar las distancias
+    asociaciones_temp["distancia_metros"] = distancias_reales
 
-# Conservar solamente asociaciones dentro de 2 km reales
-asociaciones_encontradas = [
-    asociacion
-    for asociacion in asociaciones_encontradas
-    if asociacion["distancia_metros"] <= distancia_maxima
-]
+    # Conservar solamente parejas dentro de 2 km reales
+    asociaciones_temp = asociaciones_temp[
+        asociaciones_temp["distancia_metros"] <= distancia_maxima
+    ]
+
+    asociaciones_encontradas = asociaciones_temp.to_dict("records")
 
 # Construir tabla final de asociaciones
 pares_vecinos = pd.DataFrame(
@@ -717,17 +555,11 @@ calendario["detecciones_asociadas"] = (
 # Indicador de presencia de actividad termica
 calendario["actividad_detectada"] = True
 
-# Guardar CSV
+# Preparar la carpeta y ruta del archivo de salida
 carpeta_salida = carpeta_modulo / "resultados_historicos"
 carpeta_salida.mkdir(parents=True, exist_ok=True)
 
 ruta_salida = carpeta_salida / "calendario_armonizado.csv"
-
-calendario.to_csv(
-    ruta_salida,
-    index=False,
-    encoding="utf-8-sig"
-)
 
 print("Total de celdas-dia:", len(calendario))
 

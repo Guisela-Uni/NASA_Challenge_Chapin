@@ -5,9 +5,12 @@ Ejecutar:
     python app.py
 y abrir http://127.0.0.1:5000
 """
+import csv
 import datetime as dt
+import os
+from pathlib import Path
 
-from flask import Flask, abort, jsonify, render_template
+from flask import Flask, abort, jsonify, render_template, request
 
 import modelo
 from departamentos import CONTORNO, DEPARTAMENTOS, POR_ID
@@ -15,6 +18,14 @@ from nasa_data import almacen
 
 app = Flask(__name__)
 app.json.ensure_ascii = False      # tildes legibles en el JSON
+
+# Ubicación de los datos históricos armonizados
+RUTA_HISTORICO = (
+    Path(__file__).resolve().parent.parent
+    / "armonizacion"
+    / "resultados_historicos"
+    / "calendario_armonizado.csv"
+)
 
 almacen.iniciar()
 
@@ -37,6 +48,52 @@ def _serie(dep_id):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/api/historico")
+def historico():
+    # Obtener la fecha solicitada desde la página
+    fecha = request.args.get("fecha", "").strip()
+
+    # Comprobar que la fecha tenga el formato correcto
+    try:
+        dt.date.fromisoformat(fecha)
+    except ValueError:
+        return jsonify({
+            "error": "Debes proporcionar una fecha válida (AAAA-MM-DD)."
+        }), 400
+
+    # Verificar que exista el archivo histórico
+    if not RUTA_HISTORICO.is_file():
+        return jsonify({
+            "error": "No se encontró el archivo de datos históricos."
+        }), 503
+
+    detecciones = []
+
+    # Leer las celdas con actividad de la fecha seleccionada
+    with RUTA_HISTORICO.open("r", encoding="utf-8-sig", newline="") as archivo:
+        lector = csv.DictReader(archivo)
+
+        for fila in lector:
+            if fila["fecha_gt"] != fecha:
+                continue
+
+            detecciones.append({
+                "lat": float(fila["latitude"]),
+                "lon": float(fila["longitude"]),
+                "modis": int(fila["MODIS"]),
+                "viirs": int(fila["VIIRS"]),
+                "ambos_sensores": fila["ambos_sensores"] == "True",
+                "fuente": fila["fuente"],
+                "detecciones_asociadas": int(fila["detecciones_asociadas"])
+            })
+
+    return jsonify({
+        "fecha": fecha,
+        "total_celdas": len(detecciones),
+        "detecciones": detecciones
+    })
 
 
 @app.route("/api/status")
@@ -138,4 +195,4 @@ def departamento(dep_id):
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)

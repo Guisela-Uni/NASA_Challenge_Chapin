@@ -3,107 +3,226 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
   <title>FuegoAlerta GT · Prevención de incendios en Guatemala</title>
+  <!-- Tipografía: Bricolage Grotesque (títulos y cifras) + Inter (texto) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Leaflet: solo se usa en la vista "Satélite" (imágenes NASA GIBS / VIIRS) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
+<!-- Pantalla de carga: se muestra mientras el servidor descarga los datos de la NASA -->
 <div id="cargando" class="cargando" role="status" aria-live="polite">
   <div class="cargando-caja">
-    <div class="llama" aria-hidden="true">🔥</div>
-    <h1>FuegoAlerta GT</h1>
-    <p id="progreso-txt">Conectando con los datos satelitales de la NASA…</p>
+    <span class="logo">FuegoAlerta<span class="lima"> GT</span></span>
+    <p id="progreso-txt" data-i18n="loading">Conectando con los datos satelitales de la NASA…</p>
     <div class="barra"><div id="progreso-barra"></div></div>
-    <p class="chico">La primera carga puede tardar un minuto: se descargan 6 años de historia por departamento y luego se guardan en caché.</p>
+    <p class="chico" data-i18n="loadingNote">La primera carga puede tardar un minuto.</p>
   </div>
 </div>
 
-<header class="cabecera">
-  <div class="marca">
-    <span class="marca-icono" aria-hidden="true">🔥</span>
-    <div>
-      <h1>FuegoAlerta GT</h1>
-      <p>Predicción y prevención de incendios en Guatemala con datos satelitales de la NASA</p>
+<div class="pagina">
+  <header class="cabecera">
+    <span class="logo">FuegoAlerta<span class="lima"> GT</span></span>
+    <nav class="pestanas" aria-label="Secciones">
+      <button type="button" data-tab="mapa" aria-pressed="true" data-i18n="tabMap">Mapa</button>
+      <button type="button" data-tab="cal" aria-pressed="false" data-i18n="tabCal">Calendario</button>
+      <button type="button" data-tab="met" aria-pressed="false" data-i18n="tabMet">Método</button>
+      <button type="button" data-tab="hist" aria-pressed="false">Histórico</button>
+    </nav>
+    <button type="button" id="btn-idioma" class="btn-redondo" aria-label="Switch to English">EN</button>
+  </header>
+
+  <p id="aviso" class="aviso" hidden></p>
+
+  <!-- ============ VISTA MAPA ============ -->
+  <main id="vista-mapa" class="bento">
+    <section class="tile tile-mapa" aria-labelledby="t-mapa">
+      <div class="tile-cab">
+        <h1 id="t-mapa" class="titulo" data-i18n="mapTitle">Mapa de riesgo</h1>
+        <div class="segmento" role="group" aria-label="Vista del mapa">
+          <button type="button" data-vista="hex" aria-pressed="true" data-i18n="viewRisk">Riesgo</button>
+          <button type="button" data-vista="sat" aria-pressed="false" data-i18n="viewSat">Satélite VIIRS</button>
+        </div>
+      </div>
+      <p class="sub" id="mapa-fecha"></p>
+
+      <div id="hexmapa" class="hexmapa">
+        <svg id="hex-svg" viewBox="0 0 94.2 100" aria-hidden="true"></svg>
+        <div id="hex-marcadores"></div>
+      </div>
+      <div id="satmapa" class="satmapa" hidden></div>
+
+      <div class="leyenda">
+        <div class="escala">
+          <span class="sub" data-i18n="riskScale">Riesgo (0–100)</span>
+          <span class="escala-barra" aria-hidden="true"></span>
+          <span class="escala-ticks" aria-hidden="true"><span>0</span><span>15</span><span>30+</span></span>
+        </div>
+        <span class="nota" id="nota-mapa" data-i18n="interp">Superficie interpolada entre 22 puntos de NASA POWER.</span>
+      </div>
+    </section>
+
+    <section class="tile tile-lima">
+      <span class="etq" id="nac-etq"></span>
+      <span class="cifra" id="nac-nivel">—</span>
+      <span id="nac-sub"></span>
+    </section>
+
+    <section class="tile">
+      <span class="etq suave" data-i18n="kPeak">Día más crítico</span>
+      <span class="cifra" id="pico-fecha">—</span>
+      <button type="button" id="btn-pico" class="btn-contorno"></button>
+    </section>
+
+    <section class="tile tile-ancho tile-tiempo" aria-labelledby="tl-fecha">
+      <div class="tiempo-cab">
+        <button type="button" id="btn-play" class="btn-play" aria-label="Reproducir línea de tiempo">
+          <svg class="ico-play" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5-9-5.5Z"/></svg>
+          <svg class="ico-pausa" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.5" width="3" height="11" rx="1"/><rect x="9.5" y="2.5" width="3" height="11" rx="1"/></svg>
+        </button>
+        <div class="tiempo-txt">
+          <div class="tiempo-fecha" id="tl-fecha"></div>
+          <div class="sub" data-i18n="timelineHelp">Toque una barra o presione play para recorrer el tiempo</div>
+        </div>
+        <button type="button" id="btn-hoy" class="btn-contorno btn-claro" data-i18n="today">Hoy</button>
+      </div>
+      <div id="barras" class="barras" role="group" aria-label="Línea de tiempo del riesgo máximo diario"></div>
+      <div class="tiempo-pie" aria-hidden="true"><span id="tl-ini"></span><span data-i18n="obsPred">Observado · Pronóstico</span><span id="tl-fin"></span></div>
+    </section>
+
+    <section class="tile" id="tile-a"></section>
+    <section class="tile tile-menta" id="tile-b"></section>
+  </main>
+
+  <!-- ============ VISTA CALENDARIO ============ -->
+  <main id="vista-cal" class="bento" hidden>
+    <section class="tile tile-cal">
+      <div class="tile-cab">
+        <h1 class="titulo" data-i18n="calTitle">Calendario de riesgo</h1>
+        <span class="sub" id="cal-alcance"></span>
+      </div>
+      <div class="cal-dias" aria-hidden="true" id="cal-semana"></div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <p class="sub" data-i18n="calLegend">Borde punteado = pronóstico · Borde lima = hoy · Número = riesgo (0–100)</p>
+    </section>
+    <div class="columna">
+      <section class="tile tile-lima">
+        <span class="etq" data-i18n="topDates">Fechas más críticas</span>
+        <ol class="lista lista-lima" id="cal-top"></ol>
+      </section>
+      <section class="tile">
+        <span class="etq suave" id="cal-dia-etq"></span>
+        <ol class="lista" id="cal-dia"></ol>
+        <button type="button" id="btn-ver-mapa" class="btn-contorno" data-i18n="seeOnMap">Ver en el mapa →</button>
+      </section>
     </div>
+  </main>
+
+<!-- ============ VISTA HISTÓRICO ============ -->
+<main id="vista-hist" class="bento" hidden>
+  <section class="tile tile-ancho">
+    <h1 class="titulo">Histórico de actividad térmica</h1>
+    <p class="sub">
+      Consulta de detecciones satelitales MODIS y VIIRS
+      en Guatemala, desde el año 2000 hasta 2025.
+    </p>
+
+<div class="controles-historico">
+  <label for="fecha-historico">Seleccionar fecha:</label>
+
+  <input
+    type="date"
+    id="fecha-historico"
+    min="2000-01-01"
+    max="2025-12-31"
+    value="2020-04-15"
+  />
+
+
+<label for="sensor-historico">Sensor:</label>
+
+<select id="sensor-historico">
+  <option value="todos">Todos</option>
+  <option value="modis">MODIS</option>
+  <option value="viirs">VIIRS</option>
+  <option value="ambos">Ambos sensores</option>
+</select>
+
+
+  <button type="button" id="btn-consultar-historico">
+    Consultar detecciones
+  </button>
+</div>
+
+<p id="resumen-historico" class="sub"></p>
+
+<div class="estadisticas-historico">
+  <div class="estadistica-historico">
+    <span>Celdas activas</span>
+    <strong id="hist-total">—</strong>
   </div>
-  <div id="badge-fuente" class="badge"></div>
-</header>
 
-<div id="aviso-demo" class="aviso" hidden></div>
+  <div class="estadistica-historico">
+    <span>Celdas MODIS</span>
+    <strong id="hist-modis">—</strong>
+  </div>
 
-<main>
-  <section class="kpis" aria-label="Resumen nacional">
-    <article class="kpi"><span class="kpi-et">Nivel nacional hoy</span><strong id="kpi-nivel">—</strong><span class="kpi-sub" id="kpi-nivel-sub"></span></article>
-    <article class="kpi"><span class="kpi-et">Departamentos en riesgo alto o más</span><strong id="kpi-alto">—</strong><span class="kpi-sub">de 22 departamentos</span></article>
-    <article class="kpi"><span class="kpi-et">Equilibrio ambiental promedio</span><strong id="kpi-eq">—</strong><span class="kpi-sub">100 = ambiente estable, sin condiciones para fuego</span></article>
-    <article class="kpi"><span class="kpi-et">Día más crítico (próx. 45 días)</span><strong id="kpi-pico">—</strong><span class="kpi-sub" id="kpi-pico-sub"></span></article>
+  <div class="estadistica-historico">
+    <span>Celdas VIIRS</span>
+    <strong id="hist-viirs">—</strong>
+  </div>
+
+  <div class="estadistica-historico">
+    <span>Ambos sensores</span>
+    <strong id="hist-ambos">—</strong>
+  </div>
+</div>
+
+
   </section>
 
-  <section class="dos-col">
-    <div class="tarjeta">
-      <h2>Mapa de vulnerabilidad a incendios</h2>
-      <p class="ayuda">Colores: riesgo estimado por departamento, interpolado en el territorio. Use el panel del mapa para ver imágenes satelitales de la NASA y los focos de calor detectados por VIIRS.</p>
-      <div id="mapa" aria-label="Mapa de Guatemala con el riesgo de incendios"></div>
-      <div class="leyenda" id="leyenda-niveles"></div>
-      <p class="chico">El contorno del país es aproximado y solo sirve para recortar la superficie coloreada.</p>
-    </div>
-    <div class="tarjeta">
-      <h2>Departamentos más vulnerables hoy</h2>
-      <ol id="ranking" class="ranking"></ol>
-    </div>
-  </section>
+  <section class="tile tile-ancho">
+    <h2>Detecciones históricas</h2>
+    <p class="sub">
+      Aquí se mostrará el mapa interactivo con los datos
+      armonizados de MODIS y VIIRS.
+    </p>
+    <div id="mapa-historico" class="satmapa"></div>
 
-  <section class="tarjeta" id="calendario-sec">
-    <h2>Calendario de riesgo de incendios</h2>
-    <p class="ayuda">Muestra los últimos 30 días (observados) y los próximos 45 días (pronosticados). Es un pronóstico climatológico: parte del promedio histórico de cada fecha y lo ajusta con las condiciones recientes; no sustituye el pronóstico del tiempo del INSIVUMEH.</p>
-    <div class="cal-controles">
-      <label>Ver riesgo de:
-        <select id="cal-scope"></select>
-      </label>
-      <div class="cal-nav">
-        <button id="cal-prev" type="button" aria-label="Mes anterior">‹</button>
-        <strong id="cal-mes"></strong>
-        <button id="cal-next" type="button" aria-label="Mes siguiente">›</button>
-      </div>
+    <div class="leyenda-historico">
+      <span><i class="punto-modis"></i> Solo MODIS</span>
+      <span><i class="punto-viirs"></i> Solo VIIRS</span>
+      <span><i class="punto-ambos"></i> MODIS y VIIRS</span>
     </div>
-    <div class="cal-layout">
-      <div>
-        <div class="cal-grid cal-cab" aria-hidden="true"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
-        <div id="cal-grid" class="cal-grid"></div>
-        <p class="chico">Borde sólido = dato observado · Borde punteado = pronóstico · Número = riesgo (0-100).</p>
-      </div>
-      <aside class="cal-lateral">
-        <h3>Fechas más críticas (próximos 45 días)</h3>
-        <ol id="cal-top" class="lista-top"></ol>
-        <h3 id="cal-dia-titulo">Seleccione un día</h3>
-        <div id="cal-dia" class="cal-dia"><p class="ayuda">Haga clic en un día del calendario para ver qué departamentos serían más vulnerables ese día.</p></div>
-      </aside>
-    </div>
-  </section>
 
-  <section class="tarjeta" id="detalle-sec">
-    <div class="detalle-cab">
-      <h2>Variables y plan de prevención</h2>
-      <label>Departamento:
-        <select id="sel-dep"></select>
-      </label>
-    </div>
-    <div id="detalle"></div>
-  </section>
-
-  <section class="tarjeta" id="metodo-sec">
-    <h2>¿Cuándo está el ambiente en estado estable?</h2>
-    <p class="ayuda">Estos son los rangos de referencia que usa el modelo. “Estable” es el estado neutro, poco propenso a incendios; “crítico” es el extremo en que el ambiente favorece el fuego. Son valores de partida que deben calibrarse con INSIVUMEH, CONAP e INAB.</p>
-    <div class="tabla-scroll"><table id="tabla-rangos"></table></div>
-    <div id="notas-metodo" class="notas"></div>
   </section>
 </main>
 
-<footer class="pie">
-  <p><strong>Fuentes:</strong> variables climáticas de <a href="https://power.larc.nasa.gov/" target="_blank" rel="noopener">NASA POWER</a>; imágenes y focos de calor de <a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS / Worldview</a> (VIIRS 375 m).</p>
-  <p>Herramienta de apoyo a la decisión. Las alertas oficiales y las órdenes de prohibición de quemas provienen de las autoridades (CONRED, CONAP, INAB, MARN, municipalidades).</p>
-</footer>
+
+  <!-- ============ VISTA MÉTODO ============ -->
+  <main id="vista-met" class="bento" hidden>
+    <section class="tile tile-lima tile-ancho">
+      <h1 class="titulo-grande" data-i18n="metTitle">¿Cuándo está el ambiente en estado estable?</h1>
+      <p data-i18n="metHelp"></p>
+    </section>
+    <section class="tile tile-ancho">
+      <span class="etq suave" data-i18n="formulaLabel">Cómo se calcula</span>
+      <span class="formula" data-i18n="formula"></span>
+      <span class="nota" data-i18n="metNote"></span>
+    </section>
+    <div id="met-vars" class="met-vars"></div>
+  </main>
+
+  <footer class="pie">
+    <p id="pie-fuente"></p>
+    <p data-i18n="footer"></p>
+  </footer>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>

@@ -116,10 +116,12 @@ def _ruta_cache(dep):
     return os.path.join(CARPETA_CACHE, f"power_{dep['id']}.json")
 
 
-def _leer_cache(dep):
+def _leer_cache(dep, permitir_viejo=False):
+    """Lee la caché en disco. Con permitir_viejo=True la devuelve aunque tenga
+    más de TTL_HORAS: sirve para arrancar al instante mientras se actualiza."""
     ruta = _ruta_cache(dep)
     try:
-        if (dt.datetime.now().timestamp() - os.path.getmtime(ruta)) > TTL_HORAS * 3600:
+        if not permitir_viejo and (dt.datetime.now().timestamp() - os.path.getmtime(ruta)) > TTL_HORAS * 3600:
             return None
         with open(ruta, encoding="utf-8") as fh:
             crudo = json.load(fh)
@@ -197,6 +199,7 @@ class Almacen:
         self.version = 0
         self._candado = threading.Lock()
         self._fallos_red = 0
+        self._ultimo_intento = None   # evita reintentar la descarga en cada visita
 
     # -- estado ---------------------------------------------------------
     @property
@@ -238,6 +241,11 @@ class Almacen:
                 error = "Sin conexión con NASA POWER"
         else:
             error = "MODO_DEMO=1 activado manualmente"
+        if not MODO_DEMO:
+            viejo = _leer_cache(dep, permitir_viejo=True)
+            if viejo:                 # datos reales aunque no sean de hoy
+                viejo["error"] = error
+                return viejo
         filas = simular(dep, inicio, hoy)
         return {"filas": filas, "fuente": "SIMULADO",
                 "actualizado": dt.datetime.now().isoformat(timespec="seconds"), "error": error}
@@ -260,14 +268,36 @@ class Almacen:
             self.version += 1
             self.cargando = False
 
+    def _precargar_cache_vieja(self):
+        """Arranque instantáneo ("stale-while-revalidate"): si hay caché en disco,
+        aunque tenga más de TTL_HORAS, se usa ya; la descarga nueva corre en
+        segundo plano y reemplaza los datos cuando termina."""
+        if MODO_DEMO or self.datos:
+            return
+        previos = {}
+        for dep in DEPARTAMENTOS:
+            c = _leer_cache(dep, permitir_viejo=True)
+            if not c:
+                return                # falta alguno: mejor esperar la descarga completa
+            previos[dep["id"]] = c
+        self.datos = previos
+        self.cargados = len(previos)
+        self.version += 1
+
     def iniciar(self, forzar=False):
         with self._candado:
+            self._precargar_cache_vieja()
             if self.cargando:
                 return
+            ahora = dt.datetime.now()
             if self.datos and not forzar:
                 antiguo = min(dt.datetime.fromisoformat(d["actualizado"]) for d in self.datos.values())
-                if (dt.datetime.now() - antiguo).total_seconds() < TTL_HORAS * 3600:
+                if (ahora - antiguo).total_seconds() < TTL_HORAS * 3600:
                     return
+                # datos viejos: reintentar como máximo cada 30 minutos
+                if self._ultimo_intento and (ahora - self._ultimo_intento).total_seconds() < 1800:
+                    return
+            self._ultimo_intento = ahora
             self.cargando = True
             self.cargados = 0
         threading.Thread(target=self._trabajo, daemon=True).start()

@@ -1,50 +1,159 @@
-/* FuegoAlerta GT - interfaz. Sin dependencias salvo Leaflet. */
+/* FuegoAlerta GT · interfaz "Bento bosque".
+   Lee los datos que ya entrega el servidor Flask (no cambia el backend):
+     /api/status          progreso de la descarga de NASA POWER
+     /api/estado          fecha de hoy, fuentes y departamentos (lat/lon)
+     /api/riesgo_diario   riesgo diario por departamento (30 días obs. + 45 pronóstico)
+     /api/departamento/x  variables y plan de prevención de un departamento
+     /api/rangos          umbrales y pesos del modelo
+     /api/contorno        silueta aproximada de Guatemala
+*/
 "use strict";
 
 const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const pct = (x) => Math.round(x * 100);
 
+/* ---------------------------------------------------------------
+   Textos en español e inglés
+---------------------------------------------------------------- */
+const T = {
+  es: {
+    loading: "Conectando con los datos satelitales de la NASA…", loadingNote: "La primera carga puede tardar un minuto.",
+    loadingProg: (a, b) => `Obteniendo datos de NASA POWER… ${a} de ${b} departamentos`, loadErr: "No se pudieron cargar los datos. Recargue la página.",
+    tabMap: "Mapa", tabCal: "Calendario", tabMet: "Método", langBtn: "EN", langLabel: "Switch to English",
+    mapTitle: "Mapa de riesgo", viewRisk: "Riesgo", viewSat: "Satélite VIIRS", riskScale: "Riesgo (0–100)",
+    interp: "Superficie interpolada entre 22 puntos de NASA POWER.", satNote: (f) => `Imagen VIIRS color real y focos de calor 375 m del ${f} · NASA GIBS`,
+    observed: "Observado", forecast: "Pronóstico", obsPred: "Observado · Pronóstico", today: "Hoy",
+    kNational: "Nivel nacional", ofHigh: (n) => `${n} de 22 departamentos en riesgo alto`, kPeak: "Día más crítico",
+    timelineHelp: "Toque una barra o presione play para recorrer el tiempo", play: "Reproducir línea de tiempo", pause: "Pausar",
+    rankTitle: "Más expuestos", actionToday: "Acción de hoy", varsTitle: "Variables", planTitle: "Plan de prevención", close: "Cerrar detalle",
+    maintenanceT: "Abrir rondas cortafuego antes de la época seca", maintenanceD: "Las condiciones son estables: es el momento de retirar combustible y capacitar brigadas.",
+    calTitle: "Calendario de riesgo", calScopeNat: "Nacional (máximo por día)", calLegend: "Borde punteado = pronóstico · Borde lima = hoy · Número = riesgo (0–100)",
+    topDates: "Fechas más críticas", seeOnMap: "Ver en el mapa →", dayTop: (d) => `Más vulnerables el ${d}`,
+    metTitle: "¿Cuándo está el ambiente en estado estable?",
+    metHelp: "El modelo es un índice de peligro transparente. Cada variable recibe un puntaje de 0 (rango estable) a 1 (nivel crítico); se ponderan y se ajustan por la presión de quemas humanas de cada mes. Los umbrales son valores de partida que deben calibrarse con INSIVUMEH, CONAP e INAB.",
+    formulaLabel: "Cómo se calcula", formula: "riesgo = Σ peso × puntaje × (0.85 + 0.15 × factor de ignición del mes)",
+    metNote: "La temperatura estable y crítica se ajusta por la altitud de cada departamento.", stable: "Estable", critical: "Crítico",
+    footer: "Herramienta de apoyo a la decisión. Las alertas oficiales y las prohibiciones de quemas provienen de CONRED, CONAP, INAB, MARN y las municipalidades.",
+    source: (f) => `Datos: NASA POWER (clima diario, último dato ${f}) · NASA GIBS / VIIRS 375 m (imágenes y focos de calor).`,
+    simWarn: (n) => `Atención: ${n} de 22 departamentos usan datos SIMULADOS porque no se pudo conectar con NASA POWER. No los use para tomar decisiones.`,
+    riskWord: "riesgo", states: { estable: "Estable", vigilancia: "Vigilancia", critico: "Crítico" },
+    days: "días", weekdays: ["L", "M", "M", "J", "V", "S", "D"],
+    months: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
+    monthsL: ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+    dow: ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"],
+  },
+  en: {
+    loading: "Connecting to NASA satellite data…", loadingNote: "The first load can take a minute.",
+    loadingProg: (a, b) => `Fetching NASA POWER data… ${a} of ${b} departments`, loadErr: "Data could not be loaded. Please reload the page.",
+    tabMap: "Map", tabCal: "Calendar", tabMet: "Method", langBtn: "ES", langLabel: "Cambiar a español",
+    mapTitle: "Risk map", viewRisk: "Risk", viewSat: "VIIRS satellite", riskScale: "Risk (0–100)",
+    interp: "Surface interpolated between 22 NASA POWER points.", satNote: (f) => `VIIRS true color and 375 m thermal hotspots for ${f} · NASA GIBS`,
+    observed: "Observed", forecast: "Forecast", obsPred: "Observed · Forecast", today: "Today",
+    kNational: "National level", ofHigh: (n) => `${n} of 22 departments at high risk`, kPeak: "Peak day",
+    timelineHelp: "Tap a bar or press play to move through time", play: "Play timeline", pause: "Pause",
+    rankTitle: "Most exposed", actionToday: "Today's action", varsTitle: "Variables", planTitle: "Prevention plan", close: "Close details",
+    maintenanceT: "Open firebreaks before the dry season", maintenanceD: "Conditions are stable: now is the time to remove fuel and train fire brigades.",
+    calTitle: "Risk calendar", calScopeNat: "National (daily maximum)", calLegend: "Dashed border = forecast · Lime border = today · Number = risk (0–100)",
+    topDates: "Most critical dates", seeOnMap: "Show on map →", dayTop: (d) => `Most vulnerable on ${d}`,
+    metTitle: "When is the environment stable?",
+    metHelp: "The model is a transparent danger index. Each variable scores from 0 (stable range) to 1 (critical level); scores are weighted and adjusted by the monthly pressure of human burning. Thresholds are starting values to be calibrated with INSIVUMEH, CONAP and INAB.",
+    formulaLabel: "How it is calculated", formula: "risk = Σ weight × score × (0.85 + 0.15 × monthly ignition factor)",
+    metNote: "Stable and critical temperatures are adjusted by each department's elevation.", stable: "Stable", critical: "Critical",
+    footer: "Decision-support tool. Official alerts and burning bans come from CONRED, CONAP, INAB, MARN and municipalities.",
+    source: (f) => `Data: NASA POWER (daily climate, latest ${f}) · NASA GIBS / VIIRS 375 m (imagery and thermal hotspots).`,
+    simWarn: (n) => `Warning: ${n} of 22 departments use SIMULATED data because NASA POWER could not be reached. Do not use them for decisions.`,
+    riskWord: "risk", states: { estable: "Stable", vigilancia: "Watch", critico: "Critical" },
+    days: "days", weekdays: ["M", "T", "W", "T", "F", "S", "S"],
+    months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    monthsL: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+    dow: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+  },
+};
+const NIVEL_EN = { "Bajo": "Low", "Moderado": "Moderate", "Alto": "High", "Muy alto": "Very high", "Extremo": "Extreme" };
+const VAR_ES = { tmax: "Temperatura máxima", rh: "Humedad del aire", precip15: "Lluvia (15 días)", dias_sin_lluvia: "Días sin lluvia", wind: "Viento", soil: "Humedad del suelo" };
+const VAR_EN = {
+  tmax: ["Max temperature", "Heat dries out vegetation fuel."],
+  rh: ["Relative humidity", "In dry air, vegetation loses moisture and ignites easily."],
+  precip15: ["Rainfall (last 15 days)", "Recent rain keeps soil and fuel moist."],
+  dias_sin_lluvia: ["Consecutive dry days", "Each dry day adds more fuel ready to burn."],
+  wind: ["Wind speed (2 m)", "Wind fans and spreads fire quickly."],
+  soil: ["Topsoil moisture", "Dry soil and leaf litter are the main fuel."],
+};
+const PLAN_EN = {
+  "Conservar la humedad del microclima": ["Keep the microclimate moist", "Keep vegetation cover and mulch on the soil, protect riverside vegetation and water the driest areas in the evening."],
+  "Posponer actividades que generen chispa o brasa": ["Postpone spark-producing work", "Dry air lets fire start and spread easily: avoid burning, campfires, welding or machinery during the least humid hours (11:00–16:00)."],
+  "Recuperar humedad en el suelo": ["Restore soil moisture", "Use mulch, permanent cover, minimum tillage and targeted drip irrigation on high-risk plots and forest edges."],
+  "Reducir el combustible fino": ["Reduce fine fuel", "Incorporate or compost crop residue instead of burning it; clear leaf litter and dry grass near homes, crops and forest edges."],
+  "Compensar el déficit de lluvia": ["Offset the rainfall deficit", "Use reservoirs, rainwater harvesting and wells so water is available for support irrigation and fire brigades."],
+  "Priorizar vigilancia en zonas secas": ["Prioritize patrols in dry areas", "Coordinate patrols with COCODES, the municipality, firefighters and CONRED in the areas that have gone longest without rain."],
+  "Abrir y mantener rondas cortafuego": ["Open and maintain firebreaks", "Clear strips at least 3–5 m wide around plots and forests; widen them on slopes or in windy areas."],
+  "Reducir el efecto del viento": ["Reduce wind exposure", "Plant or keep windbreaks (tree rows) and make firebreaks wider on the side of the prevailing wind."],
+  "No usar fuego con viento": ["No fire when it is windy", "Suspend all burning, even controlled burns, when the wind is strong or shifting."],
+  "Aumentar sombra y cobertura": ["Increase shade and cover", "Keep shade trees in agroforestry systems and pastures to lower ground temperature and slow fuel drying."],
+  "Trabajar en horas frescas": ["Work in cooler hours", "Schedule field work early in the morning and reinforce patrols around midday."],
+  "Vigilancia preventiva": ["Preventive watch", "Check firebreaks, locate water sources and share the risk status with the community."],
+  "Restringir el uso del fuego": ["Restrict the use of fire", "Avoid agricultural and pasture burning. If unavoidable, check current regulations and notify the local authority (municipality, INAB or CONAP)."],
+  "Activar brigadas y alerta comunitaria": ["Activate brigades and community alert", "Ban burning, activate local brigades and keep in touch with firefighters, CONRED and CONAP/INAB."],
+  "Alerta máxima": ["Maximum alert", "Suspend all burning. Keep brigades and equipment ready, watch protected areas and prepare evacuation routes and community warnings."],
+  "Mantener el ambiente en equilibrio": ["Keep the environment in balance", "Conditions are stable. Use this time to open firebreaks, remove fuel and train brigades before the dry season (November to May)."],
+};
+
+/* ---------------------------------------------------------------
+   Estado de la interfaz
+---------------------------------------------------------------- */
+const S = { lang: "es", tab: "mapa", vista: "hex", di: 0, sel: null, sonando: false };
 let ESTADO, DIARIO, RANGOS, CONTORNO;
-let mapa, capaRiesgo, marcadores = {};
-let depSel = null;
-let calMes = null, calScope = "media", calDiaSel = null;
+let HOY = 0, PICO = 0, HEX = [], MARCAS = {};
+const DETALLES = {};        // caché de /api/departamento/<id>
+let accionHoy = null, reloj = null, mapaSat = null, capaSat = null;
+let mapaHistorico = null;
+let capaHistorica = null;
+let deteccionesHistoricas = [];
+const t = () => T[S.lang];
 
-/* ---------- utilidades ---------- */
+/* ---------------------------------------------------------------
+   Utilidades
+---------------------------------------------------------------- */
 async function api(url) {
   const r = await fetch(url);
   if (r.status === 503) throw new Error("NO_LISTO");
   if (!r.ok) throw new Error(url + " → " + r.status);
   return r.json();
 }
-const fechaLarga = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("es-GT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-const fechaCorta = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("es-GT", { day: "numeric", month: "short" });
-const isoDe = (y, m, d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+const fecha = (iso) => new Date(iso + "T12:00:00");
+function fCorta(i) { const d = fecha(DIARIO.fechas[i]); return S.lang === "es" ? `${d.getDate()} ${t().months[d.getMonth()]}` : `${t().months[d.getMonth()]} ${d.getDate()}`; }
+function fLarga(i) { const d = fecha(DIARIO.fechas[i]); return S.lang === "es" ? `${t().dow[d.getDay()]} ${d.getDate()} de ${t().monthsL[d.getMonth()]}` : `${t().dow[d.getDay()]}, ${t().monthsL[d.getMonth()]} ${d.getDate()}`; }
+function fIso(iso) { const d = fecha(iso); return S.lang === "es" ? `${d.getDate()} ${t().months[d.getMonth()]}` : `${t().months[d.getMonth()]} ${d.getDate()}`; }
+const riesgo = (id, i) => Math.round(DIARIO.departamentos[id][i] * 100);   // 0–100
+const nombreNivel = (n) => (S.lang === "es" ? n : NIVEL_EN[n] || n);
+function nivel(r100) {
+  const r = r100 / 100;
+  for (const n of DIARIO.umbrales_nivel) if (r < n.hasta) return n.nombre;
+  return DIARIO.umbrales_nivel[DIARIO.umbrales_nivel.length - 1].nombre;
+}
 
-const RAMPA = [[0, [59, 156, 90]], [0.2, [227, 197, 66]], [0.35, [240, 138, 36]], [0.5, [217, 65, 43]], [0.7, [142, 27, 58]]];
-function colorRiesgoRGB(r) {
+/* Escala de 3 colores: bosque (0) → menta (14) → lima (30 o más) */
+const RAMPA = [[0, [36, 78, 49]], [14, [155, 227, 174]], [30, [212, 242, 122]]];
+function color(v) {
   for (let i = 1; i < RAMPA.length; i++) {
-    if (r <= RAMPA[i][0]) {
-      const [a, ca] = RAMPA[i - 1], [b, cb] = RAMPA[i];
-      const t = (r - a) / (b - a);
-      return ca.map((c, k) => Math.round(c + (cb[k] - c) * t));
+    if (v <= RAMPA[i][0]) {
+      const [a, ca] = RAMPA[i - 1], [b, cb] = RAMPA[i], k = (v - a) / (b - a);
+      return `rgb(${ca.map((c, j) => Math.round(c + (cb[j] - c) * k)).join(",")})`;
     }
   }
-  return RAMPA[RAMPA.length - 1][1];
+  return "rgb(212,242,122)";
 }
-function nivelDe(r) {
-  for (const n of DIARIO.umbrales_nivel) if (r < n.hasta) return n;
-  return DIARIO.umbrales_nivel[DIARIO.umbrales_nivel.length - 1];
-}
-const claro = (nombre) => nombre === "Moderado";   // texto oscuro sobre amarillo
 
-/* ---------- carga ---------- */
+/* ---------------------------------------------------------------
+   Carga inicial
+---------------------------------------------------------------- */
 async function esperarDatos() {
   for (;;) {
     const s = await (await fetch("/api/status")).json();
     $("#progreso-barra").style.width = Math.max(3, (100 * s.cargados) / s.total) + "%";
-    $("#progreso-txt").textContent = `Obteniendo datos satelitales… ${s.cargados} de ${s.total} departamentos`;
-    if (s.listo) return s;
+    $("#progreso-txt").textContent = t().loadingProg(s.cargados, s.total);
+    if (s.listo) return;
     await new Promise((r) => setTimeout(r, 800));
   }
 }
@@ -52,329 +161,492 @@ async function esperarDatos() {
 async function init() {
   try {
     await esperarDatos();
-    [ESTADO, DIARIO, RANGOS, CONTORNO] = await Promise.all([
-      api("/api/estado"), api("/api/riesgo_diario"), api("/api/rangos"), api("/api/contorno"),
-    ]);
+    [ESTADO, DIARIO, RANGOS, CONTORNO] = await Promise.all([api("/api/estado"), api("/api/riesgo_diario"), api("/api/rangos"), api("/api/contorno")]);
   } catch (e) {
-    $("#progreso-txt").textContent = "No se pudieron cargar los datos. Recargue la página.";
+    $("#progreso-txt").textContent = t().loadErr;
     console.error(e);
     return;
   }
+  // Índice de "hoy" en la serie y día más crítico de los próximos días
+  HOY = DIARIO.fechas.indexOf(ESTADO.hoy);
+  if (HOY < 0) HOY = DIARIO.tipos.lastIndexOf("obs");
+  PICO = HOY;
+  for (let i = HOY; i < DIARIO.fechas.length; i++) if (DIARIO.nacional_maximo[i] > DIARIO.nacional_maximo[PICO]) PICO = i;
+  S.di = HOY;
+
+  construirHexagonos();
+  conectarEventos();
+  cargarAccionHoy();
   $("#cargando").hidden = true;
-  pintarBadge(); pintarKPIs(); initMapa(); pintarRanking();
-  initCalendario(); initDetalle(); pintarMetodo();
+  pintarTodo();
 }
 
-/* ---------- cabecera y KPIs ---------- */
-function pintarBadge() {
-  const f = ESTADO.fuentes, real = f["NASA POWER"] || 0, sim = f["SIMULADO"] || 0;
-  const b = $("#badge-fuente"), aviso = $("#aviso-demo");
-  if (sim === 0) {
-    b.className = "badge real";
-    b.textContent = `Datos NASA POWER · último dato: ${fechaCorta(ESTADO.ultimo_dato)}`;
-    aviso.hidden = true;
-  } else {
-    b.className = "badge demo";
-    b.textContent = sim === 22 ? "MODO DEMOSTRACIÓN · datos simulados" : `Datos mixtos: ${sim} departamentos simulados`;
-    aviso.hidden = false;
-    aviso.innerHTML = `<strong>Atención:</strong> ${sim === 22 ? "no se pudo conectar con NASA POWER y todos los valores que ve son <u>simulados</u>" : `${sim} de 22 departamentos usan valores <u>simulados</u>`}. Sirven para probar la aplicación, <strong>no para tomar decisiones</strong>. Ejecute la aplicación en un equipo con acceso a internet para usar datos reales. ${ESTADO.errores.length ? "<br><small>Detalle: " + esc(ESTADO.errores[0]) + "</small>" : ""}`;
-  }
-}
+/* ---------------------------------------------------------------
+   Mapa de hexágonos
+   Cada hexágono toma el riesgo de los departamentos cercanos
+   (interpolación IDW: los más cercanos pesan más).
+---------------------------------------------------------------- */
+const LON0 = -92.35, LON1 = -88.10, LAT0 = 13.60, LAT1 = 17.95, ANCHO = 94.2, ALTO = 100;
+const px = (lon) => ((lon - LON0) / (LON1 - LON0)) * ANCHO;
+const py = (lat) => ((LAT1 - lat) / (LAT1 - LAT0)) * ALTO;
 
-function pintarKPIs() {
-  const n = ESTADO.nacional;
-  $("#kpi-nivel").innerHTML = `<span style="color:${n.color}">${esc(n.nivel)}</span>`;
-  $("#kpi-nivel-sub").textContent = `Riesgo medio ${pct(n.riesgo_medio)}/100`;
-  $("#kpi-alto").textContent = n.en_alto_o_mas;
-  $("#kpi-eq").textContent = n.equilibrio_medio + "/100";
-  const futuro = futuros("maximo");
-  if (futuro.length) {
-    const mejor = futuro.slice().sort((a, b) => b.valor - a.valor)[0];
-    $("#kpi-pico").textContent = fechaCorta(mejor.fecha);
-    $("#kpi-pico-sub").textContent = `Riesgo del departamento más crítico: ${pct(mejor.valor)}/100 (${nivelDe(mejor.valor).nombre})`;
-  }
-}
-
-/* ---------- mapa ---------- */
-function gibs(capa, fecha, nivel, ext) {
-  const t = fecha ? `/default/${fecha}` : "/default";
-  return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${capa}${t}/GoogleMapsCompatible_Level${nivel}/{z}/{y}/{x}.${ext}`;
-}
-function dentro(lat, lon, poly) {
+function dentro(x, y, poly) {
   let c = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [yi, xi] = poly[i], [yj, xj] = poly[j];
-    if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) c = !c;
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
   }
   return c;
 }
-function riesgoIDW(lat, lon) {
-  let num = 0, den = 0;
-  for (const d of ESTADO.departamentos) {
-    const dx = (lon - d.lon) * Math.cos((lat * Math.PI) / 180), dy = lat - d.lat;
-    const w = 1 / (dx * dx + dy * dy + 1e-4);
-    num += w * d.riesgo; den += w;
-  }
-  return num / den;
-}
 
-/* Superficie continua de riesgo: interpolación IDW recortada al contorno del país,
-   dibujada una sola vez en un canvas y mostrada como imagen sobre el mapa. */
-function superficieRiesgo(lim) {
-  const W = 360, H = 360;
-  const cv = document.createElement("canvas");
-  cv.width = W; cv.height = H;
-  const ctx = cv.getContext("2d");
-  const img = ctx.createImageData(W, H);
-  for (let j = 0; j < H; j++) {
-    const lat = lim.n - ((j + 0.5) / H) * (lim.n - lim.s);
-    for (let i = 0; i < W; i++) {
-      const lon = lim.w + ((i + 0.5) / W) * (lim.e - lim.w);
-      if (!dentro(lat, lon, CONTORNO.contorno)) continue;
-      const c = colorRiesgoRGB(riesgoIDW(lat, lon)), k = 4 * (j * W + i);
-      img.data[k] = c[0]; img.data[k + 1] = c[1]; img.data[k + 2] = c[2]; img.data[k + 3] = 255;
+function construirHexagonos() {
+  const poly = CONTORNO.contorno.map(([lat, lon]) => [px(lon), py(lat)]);
+  const deps = ESTADO.departamentos.map((d) => ({ id: d.id, x: px(d.lon), y: py(d.lat) }));
+  const r = 1.45, w = Math.sqrt(3) * r, h = 1.5 * r, NS = "http://www.w3.org/2000/svg";
+  const svg = $("#hex-svg");
+  for (let fila = 0, y = 0; y <= ALTO; fila++, y += h) {
+    for (let x = fila % 2 ? w / 2 : 0; x <= ANCHO; x += w) {
+      if (!dentro(x, y, poly)) continue;
+      const pts = [0, 1, 2, 3, 4, 5].map((k) => {
+        const a = (Math.PI / 180) * (60 * k - 30);
+        return `${(x + r * 0.92 * Math.cos(a)).toFixed(2)},${(y + r * 0.92 * Math.sin(a)).toFixed(2)}`;
+      }).join(" ");
+      const el = document.createElementNS(NS, "polygon");
+      el.setAttribute("points", pts);
+      svg.appendChild(el);
+      // pesos IDW precalculados: así cambiar de fecha es solo una suma
+      let total = 0;
+      const pesos = deps.map((d) => { const p = 1 / Math.pow((d.x - x) ** 2 + (d.y - y) ** 2 + 0.5, 1.6); total += p; return [d.id, p]; });
+      HEX.push({ el, pesos: pesos.map(([id, p]) => [id, p / total]) });
     }
   }
-  ctx.putImageData(img, 0, 0);
-  return cv.toDataURL("image/png");
+  // Marcadores de departamento (botones reales: se pueden tocar y usar con teclado)
+  const cont = $("#hex-marcadores"), etiquetas = [];
+  for (const d of ESTADO.departamentos) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "marcador";
+    b.style.left = (px(d.lon) / ANCHO) * 100 + "%"; b.style.top = py(d.lat) + "%";
+    b.innerHTML = "<span></span>";
+    b.addEventListener("click", () => seleccionar(d.id));
+    const e = document.createElement("span");
+    e.className = "etiqueta"; e.style.left = b.style.left; e.style.top = b.style.top; e.hidden = true;
+    cont.append(b);
+    etiquetas.push(e);
+    MARCAS[d.id] = { b, e, nombre: d.nombre };
+  }
+  cont.append(...etiquetas);   // las etiquetas van al final para quedar encima de los puntos
 }
 
-function initMapa() {
-  const attrNasa = 'Imágenes: <a href="https://earthdata.nasa.gov/gibs">NASA GIBS</a>';
-  const relieve = L.tileLayer(gibs("BlueMarble_ShadedRelief_Bathymetry", null, 8, "jpeg"), { maxNativeZoom: 8, maxZoom: 12, attribution: attrNasa });
-  const satelite = L.tileLayer(gibs("VIIRS_SNPP_CorrectedReflectance_TrueColor", ESTADO.fecha_imagenes, 9, "jpg"), { maxNativeZoom: 9, maxZoom: 12, attribution: attrNasa + " · VIIRS " + ESTADO.fecha_imagenes });
-  const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" });
-  const focos = L.tileLayer(gibs("VIIRS_SNPP_Thermal_Anomalies_375m_All", ESTADO.fecha_imagenes, 9, "png"), { maxNativeZoom: 9, maxZoom: 12, opacity: 0.95, attribution: attrNasa + " · focos " + ESTADO.fecha_imagenes });
-
-  mapa = L.map("mapa", { layers: [relieve], zoomSnap: 0.25, minZoom: 6 });
-  mapa.fitBounds([[13.6, -92.4], [17.9, -88.1]]);
-  mapa.setMaxBounds([[11.5, -95], [19.5, -85.5]]);
-
-  capaRiesgo = L.layerGroup();
-  const lim = { s: 13.6, n: 17.9, w: -92.4, e: -88.1 };
-  L.imageOverlay(superficieRiesgo(lim), [[lim.s, lim.w], [lim.n, lim.e]], { opacity: 0.62, interactive: false }).addTo(capaRiesgo);
-  L.polygon(CONTORNO.contorno, { color: "#17382a", weight: 2, fill: false, interactive: false }).addTo(capaRiesgo);
-  capaRiesgo.addTo(mapa);
-
-  const capaDeps = L.layerGroup();
-  for (const d of ESTADO.departamentos) {
-    const m = L.circleMarker([d.lat, d.lon], { radius: 8, color: "#fff", weight: 2, fillColor: d.color, fillOpacity: 1 });
-    m.bindTooltip(`<strong>${esc(d.nombre)}</strong><br>${esc(d.nivel)} · riesgo ${pct(d.riesgo)}/100<br>Equilibrio ${d.equilibrio}/100`, { direction: "top" });
-    m.on("click", () => seleccionarDep(d.id, true));
-    m.addTo(capaDeps);
-    marcadores[d.id] = m;
+function pintarHexagonos() {
+  for (const hx of HEX) {
+    let v = 0;
+    for (const [id, p] of hx.pesos) v += p * riesgo(id, S.di);
+    hx.el.setAttribute("fill", color(v));
   }
-  capaDeps.addTo(mapa);
+  const orden = ESTADO.departamentos.map((d) => [riesgo(d.id, S.di), d.id]).sort((a, b) => b[0] - a[0]);
+  const top1 = orden[0] && orden[0][0] > 0 ? orden[0][1] : null;   // solo el más expuesto lleva nombre
+  for (const d of ESTADO.departamentos) {
+    const m = MARCAS[d.id], r = riesgo(d.id, S.di), sel = S.sel === d.id;
+    m.b.style.setProperty("--c", color(r + 4));
+    m.b.style.setProperty("--t", 12 + Math.round(r * 0.3) + "px");
+    m.b.setAttribute("aria-pressed", sel ? "true" : "false");
+    m.b.setAttribute("aria-label", `${d.nombre}: ${t().riskWord} ${r} (${nombreNivel(nivel(r))})`);
+    m.e.hidden = !(sel || (!S.sel && d.id === top1));
+    m.e.innerHTML = `${esc(d.nombre)} <b>${r}</b>`;
+  }
+}
 
-  L.control.layers(
-    { "Relieve (NASA Blue Marble)": relieve, "Satélite VIIRS (color real)": satelite, "Calles (OpenStreetMap)": osm },
-    { "Riesgo de incendio (interpolado)": capaRiesgo, "Departamentos": capaDeps, "Focos de calor VIIRS 375 m (NASA)": focos },
-    { collapsed: false }
-  ).addTo(mapa);
+/* ---------------------------------------------------------------
+   Vista satelital (NASA GIBS): se crea solo la primera vez
+---------------------------------------------------------------- */
+function gibs(capa, f, nivelZoom, ext) {
+  return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${capa}/default/${f}/GoogleMapsCompatible_Level${nivelZoom}/{z}/{y}/{x}.${ext}`;
+}
+function pintarSatelite() {
+  if (typeof L === "undefined") return;
+  if (!mapaSat) {
+    const attr = 'Imágenes: <a href="https://earthdata.nasa.gov/gibs">NASA GIBS</a> · VIIRS ' + ESTADO.fecha_imagenes;
+    mapaSat = L.map("satmapa", { zoomSnap: 0.25, minZoom: 6, attributionControl: true });
+    L.tileLayer(gibs("VIIRS_SNPP_CorrectedReflectance_TrueColor", ESTADO.fecha_imagenes, 9, "jpg"), { maxNativeZoom: 9, maxZoom: 12, attribution: attr }).addTo(mapaSat);
+    L.tileLayer(gibs("VIIRS_SNPP_Thermal_Anomalies_375m_All", ESTADO.fecha_imagenes, 9, "png"), { maxNativeZoom: 9, maxZoom: 12, opacity: 0.95 }).addTo(mapaSat);
+    L.polygon(CONTORNO.contorno, { color: "#D4F27A", weight: 2, fill: false, interactive: false }).addTo(mapaSat);
+    capaSat = L.layerGroup().addTo(mapaSat);
+    mapaSat.fitBounds([[13.6, -92.4], [17.9, -88.1]]);
+  }
+  setTimeout(() => mapaSat.invalidateSize(), 50);
+  capaSat.clearLayers();
+  for (const d of ESTADO.departamentos) {
+    const r = riesgo(d.id, S.di);
+    L.circleMarker([d.lat, d.lon], { radius: 7 + r * 0.2, color: "#0D1F14", weight: 2, fillColor: color(r + 4), fillOpacity: 1 })
+      .bindTooltip(`${esc(d.nombre)} · ${r}`).on("click", () => seleccionar(d.id)).addTo(capaSat);
+  }
+}
 
-  $("#leyenda-niveles").innerHTML = DIARIO.umbrales_nivel.map((n, i) => {
-    const desde = i === 0 ? 0 : DIARIO.umbrales_nivel[i - 1].hasta;
-    return `<span><i class="punto" style="background:${n.color}"></i>${esc(n.nombre)} (${pct(desde)}–${n.hasta > 1 ? 100 : pct(n.hasta)})</span>`;
+/* ---------------------------------------------------------------
+   Bloques del bento
+---------------------------------------------------------------- */
+function pintarNacional() {
+  const media = Math.round(DIARIO.nacional_media[S.di] * 100);
+  const altos = ESTADO.departamentos.filter((d) => riesgo(d.id, S.di) >= 35).length;
+  $("#nac-etq").textContent = `${t().kNational} · ${fCorta(S.di)}`;
+  $("#nac-nivel").textContent = nombreNivel(nivel(media));
+  $("#nac-sub").textContent = t().ofHigh(altos);
+  // Día más crítico de los próximos 45 días
+  const max = DIARIO.nacional_maximo[PICO];
+  const dep = ESTADO.departamentos.find((d) => DIARIO.departamentos[d.id][PICO] === max);
+  $("#pico-fecha").textContent = fCorta(PICO);
+  $("#btn-pico").textContent = `${dep ? dep.nombre : ""} · ${Math.round(max * 100)} →`;
+}
+
+function pintarLineaTiempo() {
+  const cont = $("#barras");
+  if (!cont.children.length) {
+    DIARIO.fechas.forEach((f, i) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.innerHTML = "<span></span>";
+      if (i === HOY) b.classList.add("hoy");
+      b.addEventListener("click", () => irA(i));
+      cont.appendChild(b);
+    });
+  }
+  [...cont.children].forEach((b, i) => {
+    const v = Math.round(DIARIO.nacional_maximo[i] * 100), sel = i === S.di;
+    const s = b.firstChild;
+    s.style.height = Math.max(6, Math.min(100, 8 + v * 2.6)) + "%";
+    s.style.background = color(v + 4);
+    s.style.opacity = sel ? 1 : DIARIO.tipos[i] === "pred" ? 0.45 : 0.8;
+    s.style.outline = sel ? "2px solid #EAF5EC" : "none";
+    b.setAttribute("aria-label", `${fCorta(i)}: ${t().riskWord} ${v}`);
+    b.setAttribute("aria-pressed", sel ? "true" : "false");
+  });
+  const tipo = DIARIO.tipos[S.di] === "pred" ? t().forecast : t().observed;
+  $("#tl-fecha").textContent = `${fLarga(S.di)} · ${tipo}`;
+  $("#mapa-fecha").textContent = `${tipo} · ${fCorta(S.di)}`;
+  $("#tl-ini").textContent = fCorta(0);
+  $("#tl-fin").textContent = fCorta(DIARIO.fechas.length - 1);
+}
+
+function pintarPanel() {
+  const a = $("#tile-a"), b = $("#tile-b");
+  if (!S.sel) {
+    a.classList.remove("desplazable"); b.classList.remove("desplazable");
+    const orden = ESTADO.departamentos.map((d) => [riesgo(d.id, S.di), d]).sort((x, y) => y[0] - x[0]).slice(0, 5);
+    a.innerHTML = `<span class="etq suave">${t().rankTitle} · ${fCorta(S.di)}</span>
+      <ol class="lista">${orden.map(([r, d]) => `<li><button type="button" class="fila" data-dep="${d.id}"><span>${esc(d.nombre)}</span><b>${r}</b></button></li>`).join("")}</ol>`;
+    const acc = traducirPlan(accionHoy) || { t: t().maintenanceT, d: t().maintenanceD };
+    b.innerHTML = `<span class="etq">${t().actionToday}</span><span class="accion-titulo">${esc(acc.t)}</span><span>${esc(acc.d)}</span>`;
+    return;
+  }
+  const d = ESTADO.departamentos.find((x) => x.id === S.sel), det = DETALLES[S.sel], r = riesgo(S.sel, S.di);
+  a.classList.add("desplazable"); b.classList.add("desplazable");
+  a.innerHTML = `<div class="cab-detalle"><div><h2>${esc(d.nombre)}</h2><p class="sub">${nombreNivel(nivel(r))} · <b class="lima">${r}</b> · ${d.elev} m</p></div>
+      <button type="button" class="btn-cerrar" id="btn-cerrar" aria-label="${t().close}"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="#EAF5EC" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+    ${det ? `<span class="nota">${t().varsTitle} · ${fIso(det.fecha_dato)}</span>
+      <ul class="lista">${det.variables.map(filaVariable).join("")}</ul>` : `<p class="sub">…</p>`}`;
+  b.innerHTML = `<span class="etq">${t().planTitle}</span>${det ? det.plan.map((p) => { const x = traducirPlan(p); return `<div class="plan-item"><h3>${esc(x.t)}</h3><p>${esc(x.d)}</p></div>`; }).join("") : "<p>…</p>"}`;
+  $("#btn-cerrar").addEventListener("click", () => seleccionar(null));
+}
+
+function filaVariable(v) {
+  let val;
+  if (v.clave === "soil") val = v.actual.toFixed(2);
+  else if (v.clave === "dias_sin_lluvia") val = `${Math.round(v.actual)} ${t().days}`;
+  else if (v.clave === "precip15") val = `${Math.round(v.actual)} mm`;
+  else val = `${v.actual.toFixed(1)} ${v.unidad}`;
+  // estable = menta · vigilancia = lima con borde · crítico = lima sólido
+  const punto = v.estado === "estable" ? "background:#9BE3AE" : v.estado === "vigilancia" ? "border:2px solid #D4F27A" : "background:#D4F27A";
+  const nombre = S.lang === "es" ? VAR_ES[v.clave] || v.nombre : (VAR_EN[v.clave] || [v.nombre])[0];
+  return `<li class="fila-var"><span>${esc(nombre)}</span><span class="val"><span>${esc(val)}</span><span class="punto" style="${punto}" aria-hidden="true"></span><span class="estado">${t().states[v.estado] || v.estado}</span></span></li>`;
+}
+
+function traducirPlan(p) {
+  if (!p) return null;
+  if (S.lang === "es" || !PLAN_EN[p.titulo]) return { t: p.titulo, d: p.detalle };
+  return { t: PLAN_EN[p.titulo][0], d: PLAN_EN[p.titulo][1] };
+}
+
+async function cargarAccionHoy() {
+  // Acción sugerida: la de mayor prioridad del departamento más expuesto hoy
+  const top = ESTADO.departamentos.slice().sort((a, b) => b.riesgo - a.riesgo)[0];
+  try {
+    const det = await api("/api/departamento/" + top.id);
+    DETALLES[top.id] = det;
+    accionHoy = det.plan.find((p) => p.prioridad !== "Nivel de alerta") || det.plan[0] || null;
+  } catch (e) { accionHoy = null; }
+  if (!S.sel && S.tab === "mapa") pintarPanel();
+}
+
+/* ---------------------------------------------------------------
+   Calendario
+---------------------------------------------------------------- */
+function pintarCalendario() {
+  const serie = S.sel ? DIARIO.departamentos[S.sel] : DIARIO.nacional_maximo;
+  const nombre = S.sel ? ESTADO.departamentos.find((d) => d.id === S.sel).nombre : t().calScopeNat;
+  $("#cal-alcance").textContent = nombre;
+  $("#cal-semana").innerHTML = t().weekdays.map((d) => `<span>${d}</span>`).join("");
+  const vacios = (fecha(DIARIO.fechas[0]).getDay() + 6) % 7;     // la semana empieza el lunes
+  let html = "<span></span>".repeat(vacios);
+  DIARIO.fechas.forEach((f, i) => {
+    const v = Math.round(serie[i] * 100), d = fecha(f);
+    const cls = ["cal-celda", DIARIO.tipos[i] === "pred" ? "pred" : "", i === HOY ? "hoy" : "", i === S.di ? "sel" : ""].join(" ");
+    const lab = d.getDate() === 1 || i === 0 ? fCorta(i) : d.getDate();
+    html += `<button type="button" class="${cls}" style="background:${color(v + 2)}" data-dia="${i}" aria-label="${esc(fLarga(i))}: ${t().riskWord} ${v}"><small>${lab}</small><strong>${v}</strong></button>`;
+  });
+  $("#cal-grid").innerHTML = html;
+  const futuros = [];
+  for (let i = HOY; i < DIARIO.fechas.length; i++) futuros.push(i);
+  futuros.sort((a, b) => serie[b] - serie[a]);
+  $("#cal-top").innerHTML = futuros.slice(0, 5).map((i) => `<li><button type="button" class="fila" data-dia="${i}"><span>${esc(fLarga(i))}</span><b>${Math.round(serie[i] * 100)}</b></button></li>`).join("");
+  $("#cal-dia-etq").textContent = t().dayTop(fCorta(S.di));
+  const orden = ESTADO.departamentos.map((d) => [riesgo(d.id, S.di), d.nombre]).sort((a, b) => b[0] - a[0]).slice(0, 5);
+  $("#cal-dia").innerHTML = orden.map(([r, n]) => `<li><span class="fila"><span>${esc(n)}</span><b>${r}</b></span></li>`).join("");
+}
+
+/* ---------------------------------------------------------------
+   Método
+---------------------------------------------------------------- */
+function pintarMetodo() {
+  $("#met-vars").innerHTML = RANGOS.variables.map((v) => {
+    const bajoMalo = v.estable > v.critico;     // p. ej. humedad: menos es peor
+    const u = v.unidad ? " " + (v.unidad === "días" ? t().days : v.unidad) : "";
+    const est = `${bajoMalo ? "≥" : "≤"} ${v.estable}${u}${v.clave === "tmax" ? "*" : ""}`;
+    const cri = `${bajoMalo ? "≤" : "≥"} ${v.critico}${u}${v.clave === "tmax" ? "*" : ""}`;
+    const en = VAR_EN[v.clave];
+    const nombre = S.lang === "es" || !en ? v.nombre : en[0];
+    const porque = S.lang === "es" || !en ? v.regla : en[1];
+    return `<section class="tile met-var"><div class="cab"><span>${esc(nombre)}</span><span class="peso">${Math.round(v.peso * 100)}%</span></div>
+      <div class="chips"><span class="chip chip-menta">${t().stable} ${esc(est)}</span><span class="chip chip-lima">${t().critical} ${esc(cri)}</span></div><p>${esc(porque)}</p></section>`;
   }).join("");
 }
 
-/* ---------- ranking ---------- */
-function pintarRanking() {
-  $("#ranking").innerHTML = ESTADO.departamentos.map((d, i) => `
-    <li><button type="button" data-id="${d.id}" aria-label="${esc(d.nombre)}, riesgo ${esc(d.nivel)}">
-      <span class="pos">${i + 1}</span>
-      <span><span class="nom">${esc(d.nombre)}</span>${d.fuente === "SIMULADO" ? '<span class="sim">simulado</span>' : ""}</span>
-      <span class="niv ${claro(d.nivel) ? "claro" : ""}" style="background:${d.color};${claro(d.nivel) ? "color:#2b2b2b" : ""}">${esc(d.nivel)} · ${pct(d.riesgo)}</span>
-      <span class="barra-r"><i style="width:${Math.min(100, pct(d.riesgo) * 1.4)}%;background:${d.color}"></i></span>
-    </button></li>`).join("");
-  $("#ranking").addEventListener("click", (e) => {
-    const b = e.target.closest("button[data-id]");
-    if (b) seleccionarDep(b.dataset.id, true);
-  });
-}
+/* ---------------------------------------------------------------
+   Acciones del usuario
+---------------------------------------------------------------- */
+function irA(i) { S.di = Math.max(0, Math.min(DIARIO.fechas.length - 1, i)); pintarTodo(); }
 
-/* ---------- calendario ---------- */
-function valoresScope(scope) {
-  if (scope === "media") return DIARIO.nacional_media;
-  if (scope === "maximo") return DIARIO.nacional_maximo;
-  return DIARIO.departamentos[scope];
-}
-function futuros(scope) {
-  const hoy = ESTADO.hoy, v = valoresScope(scope);
-  return DIARIO.fechas.map((f, i) => ({ fecha: f, valor: v[i], tipo: DIARIO.tipos[i] })).filter((x) => x.fecha >= hoy);
-}
-
-function initCalendario() {
-  const sel = $("#cal-scope");
-  const opciones = [["media", "Todo el país (promedio)"], ["maximo", "Todo el país (departamento más crítico)"]]
-    .concat(Object.entries(DIARIO.nombres).sort((a, b) => a[1].localeCompare(b[1], "es")).map(([id, n]) => [id, n]));
-  sel.innerHTML = opciones.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("");
-  sel.addEventListener("change", () => { calScope = sel.value; calDiaSel = null; pintarCalendario(); pintarTop(); pintarDiaSel(); });
-  const hoy = ESTADO.hoy;
-  calMes = [Number(hoy.slice(0, 4)), Number(hoy.slice(5, 7)) - 1];
-  $("#cal-prev").addEventListener("click", () => cambiarMes(-1));
-  $("#cal-next").addEventListener("click", () => cambiarMes(1));
-  $("#cal-grid").addEventListener("click", (e) => {
-    const c = e.target.closest("[data-fecha]");
-    if (c && !c.classList.contains("fuera")) { calDiaSel = c.dataset.fecha; pintarCalendario(); pintarDiaSel(); }
-  });
-  $("#cal-top").addEventListener("click", (e) => {
-    const li = e.target.closest("[data-fecha]");
-    if (li) { calDiaSel = li.dataset.fecha; calMes = [Number(calDiaSel.slice(0, 4)), Number(calDiaSel.slice(5, 7)) - 1]; pintarCalendario(); pintarDiaSel(); }
-  });
-  pintarCalendario(); pintarTop(); pintarDiaSel();
-}
-
-function cambiarMes(delta) {
-  let [y, m] = calMes; m += delta;
-  if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; }
-  calMes = [y, m]; pintarCalendario();
-}
-
-function pintarCalendario() {
-  const [y, m] = calMes;
-  const v = valoresScope(calScope);
-  const idx = Object.fromEntries(DIARIO.fechas.map((f, i) => [f, i]));
-  const primero = DIARIO.fechas[0], ultimo = DIARIO.fechas[DIARIO.fechas.length - 1];
-  $("#cal-mes").textContent = new Date(y, m, 1).toLocaleDateString("es-GT", { month: "long", year: "numeric" });
-  $("#cal-prev").disabled = `${y}-${String(m + 1).padStart(2, "0")}` <= primero.slice(0, 7);
-  $("#cal-next").disabled = `${y}-${String(m + 1).padStart(2, "0")}` >= ultimo.slice(0, 7);
-  const offset = (new Date(y, m, 1).getDay() + 6) % 7;
-  const ndias = new Date(y, m + 1, 0).getDate();
-  let html = "";
-  for (let i = 0; i < offset; i++) html += '<span class="cal-vacio"></span>';
-  for (let d = 1; d <= ndias; d++) {
-    const iso = isoDe(y, m, d), i = idx[iso];
-    if (i === undefined) { html += `<div class="cal-dia-celda fuera" aria-hidden="true"><span class="n">${d}</span></div>`; continue; }
-    const r = v[i], n = nivelDe(r);
-    const clases = ["cal-dia-celda", DIARIO.tipos[i], iso === ESTADO.hoy ? "hoy" : "", iso === calDiaSel ? "sel" : "", claro(n.nombre) ? "claro" : ""].join(" ");
-    html += `<button type="button" class="${clases}" data-fecha="${iso}" style="background:${n.color}" title="${fechaLarga(iso)} · ${n.nombre} (${pct(r)}/100) · ${DIARIO.tipos[i] === "obs" ? "observado" : "pronóstico"}" aria-label="${fechaLarga(iso)}, riesgo ${n.nombre}">
-      <span class="n">${d}</span><span class="v">${pct(r)}</span></button>`;
+async function seleccionar(id) {
+  S.sel = id;
+  if (id && S.tab !== "mapa") cambiarPestana("mapa");
+  pintarTodo();
+  if (id && !DETALLES[id]) {
+    try { DETALLES[id] = await api("/api/departamento/" + id); } catch (e) { console.error(e); }
+    if (S.sel === id) pintarPanel();
   }
-  $("#cal-grid").innerHTML = html;
 }
 
-function pintarTop() {
-  const top = futuros(calScope).filter((x) => x.fecha > ESTADO.hoy).sort((a, b) => b.valor - a.valor).slice(0, 5)
-    .sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
-  $("#cal-top").innerHTML = top.map((x) => {
-    const n = nivelDe(x.valor);
-    return `<li data-fecha="${x.fecha}"><span>${fechaCorta(x.fecha)}</span><span class="chip ${claro(n.nombre) ? "claro" : ""}" style="background:${n.color}">${esc(n.nombre)} · ${pct(x.valor)}</span></li>`;
-  }).join("") || "<li>Sin datos</li>";
+
+function filtrarHistorico() {
+  const sensor = $("#sensor-historico").value;
+
+  const filtradas = deteccionesHistoricas.filter((d) => {
+    if (sensor === "modis") return d.modis > 0;
+    if (sensor === "viirs") return d.viirs > 0;
+    if (sensor === "ambos") return d.modis > 0 && d.viirs > 0;
+    return true;
+  });
+
+  pintarMapaHistorico(filtradas);
+
+  const fecha = $("#fecha-historico").value;
+  $("#resumen-historico").textContent =
+    `${filtradas.length} de ${deteccionesHistoricas.length} celdas con actividad térmica el ${fecha}.`;
 }
 
-function pintarDiaSel() {
-  const t = $("#cal-dia-titulo"), cont = $("#cal-dia");
-  if (!calDiaSel) { t.textContent = "Seleccione un día"; cont.innerHTML = '<p class="ayuda">Haga clic en un día del calendario para ver qué departamentos serían más vulnerables ese día.</p>'; return; }
-  const i = DIARIO.fechas.indexOf(calDiaSel);
-  t.textContent = fechaLarga(calDiaSel);
-  const lista = Object.entries(DIARIO.departamentos).map(([id, arr]) => ({ id, nombre: DIARIO.nombres[id], r: arr[i] })).sort((a, b) => b.r - a.r).slice(0, 6);
-  cont.innerHTML = `<p class="ayuda">${DIARIO.tipos[i] === "obs" ? "Día observado." : "Día pronosticado."} Departamentos más vulnerables:</p><ol>` +
-    lista.map((x) => { const n = nivelDe(x.r); return `<li><a href="#detalle-sec" data-id="${x.id}">${esc(x.nombre)}</a> — ${esc(n.nombre)} (${pct(x.r)})</li>`; }).join("") + "</ol>";
-  cont.querySelectorAll("a[data-id]").forEach((a) => a.addEventListener("click", () => seleccionarDep(a.dataset.id, false)));
-}
 
-/* ---------- detalle del departamento ---------- */
-function initDetalle() {
-  const sel = $("#sel-dep");
-  const ordenados = ESTADO.departamentos.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  sel.innerHTML = ordenados.map((d) => `<option value="${d.id}">${esc(d.nombre)}</option>`).join("");
-  sel.addEventListener("change", () => seleccionarDep(sel.value, false));
-  seleccionarDep(ESTADO.departamentos[0].id, false);
-}
-
-async function seleccionarDep(id, desplazar) {
-  depSel = id;
-  $("#sel-dep").value = id;
-  if (marcadores[id]) { marcadores[id].openTooltip(); }
-  let d;
-  try { d = await api("/api/departamento/" + id); } catch (e) { $("#detalle").innerHTML = "<p>No se pudo cargar el detalle.</p>"; return; }
-  if (depSel !== id) return;
-  const nClaro = claro(d.nivel);
-  const circ = 2 * Math.PI * 42, dash = (d.equilibrio / 100) * circ;
-  const colorEq = d.equilibrio >= 80 ? "#3b9c5a" : d.equilibrio >= 60 ? "#e3c542" : d.equilibrio >= 40 ? "#f08a24" : "#d9412b";
-  const vars = d.variables.map((v) => `
-    <tr>
-      <td><strong>${esc(v.nombre)}</strong><br><small>${esc(v.regla)}</small></td>
-      <td class="num"><strong>${v.actual}</strong> ${esc(v.unidad)}${v.estimado ? "<br><small>(estimado)</small>" : ""}
-        <div class="medidor" title="Cercanía al nivel crítico"><i style="width:${Math.max(4, pct(v.puntaje))}%;background:${v.estado === "estable" ? "#3b9c5a" : v.estado === "vigilancia" ? "#e3a42a" : "#d9412b"}"></i></div></td>
-      <td class="num">${esc(v.estable_txt)} ${esc(v.unidad)}</td>
-      <td class="num">${esc(v.critico_txt)} ${esc(v.unidad)}</td>
-      <td><span class="estado ${v.estado}">${v.estado === "estable" ? "Estable" : v.estado === "vigilancia" ? "Vigilancia" : "Crítico"}</span></td>
-      <td>${esc(v.brecha)}<br><small>${esc(v.palanca)}</small></td>
-    </tr>`).join("");
-  const plan = d.plan.map((a) => `
-    <article class="accion ${a.prioridad.split(" ")[0]}">
-      <span class="et">${esc(a.prioridad)}${a.variable ? " · " + esc(a.variable) : ""}</span>
-      <h4>${esc(a.titulo)}</h4><p>${esc(a.detalle)}</p>
-    </article>`).join("");
-  $("#detalle").innerHTML = `
-    <div class="res-dep">
-      <svg class="donut" viewBox="0 0 100 100" role="img" aria-label="Equilibrio ambiental ${d.equilibrio} de 100">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="#eee8d8" stroke-width="10"/>
-        <circle cx="50" cy="50" r="42" fill="none" stroke="${colorEq}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${dash} ${circ}" transform="rotate(-90 50 50)"/>
-        <text x="50" y="48" text-anchor="middle" font-size="22" font-weight="700" font-family="Georgia,serif" fill="#1d2a21">${d.equilibrio}</text>
-        <text x="50" y="64" text-anchor="middle" font-size="9" fill="#5d6b60">equilibrio</text>
-      </svg>
-      <div>
-        <h3>${esc(d.nombre)} <span class="chip ${nClaro ? "claro" : ""}" style="background:${d.color}">${esc(d.nivel)} · ${pct(d.riesgo)}/100</span></h3>
-        <p class="ayuda" style="margin:0">Altitud de referencia: ${d.elev} m · Último dato observado: ${fechaCorta(d.fecha_dato)} · Fuente: ${d.fuente === "SIMULADO" ? "<strong>simulada (demostración)</strong>" : "NASA POWER"}.<br>
-        Un equilibrio de 100 significa que todas las variables están en el rango estable.</p>
-      </div>
-    </div>
-    <h3>Variables actuales frente al rango estable</h3>
-    <div class="tabla-scroll"><table>
-      <thead><tr><th>Variable</th><th>Valor actual</th><th>Rango estable</th><th>Nivel crítico</th><th>Estado</th><th>Brecha y cómo equilibrarla</th></tr></thead>
-      <tbody>${vars}</tbody></table></div>
-    <h3>Riesgo: últimos 30 días y próximos 45 días</h3>
-    ${grafica(d.serie)}
-    <h3>Plan de prevención recomendado</h3>
-    <div class="plan">${plan}</div>`;
-  if (desplazar) $("#detalle-sec").scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function grafica(serie) {
-  const W = 760, H = 250, ml = 44, mr = 14, mt = 14, mb = 30;
-  const maxY = Math.max(0.7, ...serie.map((s) => s.riesgo)) * 1.08;
-  const x = (i) => ml + (i / (serie.length - 1)) * (W - ml - mr);
-  const y = (v) => mt + (1 - v / maxY) * (H - mt - mb);
-  const iHoy = serie.findIndex((s) => s.fecha >= ESTADO.hoy);
-  let bandas = "", prev = 0;
-  for (const n of DIARIO.umbrales_nivel) {
-    const tope = Math.min(n.hasta, maxY);
-    if (prev < maxY) bandas += `<rect x="${ml}" y="${y(tope)}" width="${W - ml - mr}" height="${y(prev) - y(tope)}" fill="${n.color}" opacity="0.13"/>`;
-    prev = n.hasta;
+/* ---------------------------------------------------------------
+   Mapa histórico de detecciones MODIS y VIIRS
+---------------------------------------------------------------- */
+function pintarMapaHistorico(detecciones) {
+  if (typeof L === "undefined") {
+    console.error("Leaflet no está disponible.");
+    return;
   }
-  const ticks = [0, 0.2, 0.35, 0.5, 0.65].filter((t) => t < maxY).map((t) => `<line x1="${ml}" x2="${W - mr}" y1="${y(t)}" y2="${y(t)}" stroke="#d8d2c0" stroke-width="0.7"/><text x="${ml - 6}" y="${y(t) + 4}" text-anchor="end" font-size="11" fill="#5d6b60">${pct(t)}</text>`).join("");
-  const pts = (arr) => arr.map((s) => `${x(serie.indexOf(s)).toFixed(1)},${y(s.riesgo).toFixed(1)}`).join(" ");
-  const obs = serie.filter((s) => s.tipo === "obs"), pred = serie.filter((s) => s.tipo === "pred");
-  const unir = obs.length ? [obs[obs.length - 1]].concat(pred) : pred;
-  const marcasX = serie.map((s, i) => ({ s, i })).filter(({ s, i }) => i % 10 === 0 || i === serie.length - 1)
-    .map(({ s, i }) => `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === serie.length - 1 ? "end" : "middle"}" font-size="11" fill="#5d6b60">${fechaCorta(s.fecha)}</text>`).join("");
-  const puntos = serie.map((s, i) => `<circle cx="${x(i)}" cy="${y(s.riesgo)}" r="5" fill="transparent"><title>${fechaCorta(s.fecha)} · ${s.nivel} (${pct(s.riesgo)}/100) · ${s.tipo === "obs" ? "observado" : "pronóstico"}</title></circle>`).join("");
-  return `<svg class="grafica" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfica del riesgo de incendio por día">
-    ${bandas}${ticks}
-    <line x1="${x(iHoy)}" x2="${x(iHoy)}" y1="${mt}" y2="${H - mb}" stroke="#1b6fd6" stroke-width="1.5" stroke-dasharray="4 3"/>
-    <text x="${x(iHoy) + 4}" y="${mt + 10}" font-size="11" fill="#1b6fd6">hoy</text>
-    <polyline points="${pts(obs)}" fill="none" stroke="#1d2a21" stroke-width="2.4"/>
-    <polyline points="${pts(unir)}" fill="none" stroke="#d9531e" stroke-width="2.4" stroke-dasharray="6 4"/>
-    ${marcasX}${puntos}
-    <text x="${ml}" y="${H - 8}" font-size="0"> </text>
-  </svg>
-  <p class="chico">Línea negra: observado · Línea naranja punteada: pronóstico · Franjas: niveles de riesgo (0-100).</p>`;
+
+  // Crear el mapa solamente la primera vez
+  if (!mapaHistorico) {
+    mapaHistorico = L.map("mapa-historico", {
+      zoomSnap: 0.25,
+      minZoom: 6
+    });
+
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 18,
+        attribution: "&copy; OpenStreetMap contributors"
+      }
+    ).addTo(mapaHistorico);
+
+    mapaHistorico.fitBounds([
+      [13.6, -92.4],
+      [17.9, -88.1]
+    ]);
+
+    capaHistorica = L.layerGroup().addTo(mapaHistorico);
+  }
+
+  // Limpiar los puntos de la consulta anterior
+  capaHistorica.clearLayers();
+
+  // Dibujar las celdas con actividad térmica
+  detecciones.forEach((d) => {
+    let colorPunto;
+
+    if (d.ambos_sensores) {
+      colorPunto = "#D4F27A";
+    } else if (d.modis > 0) {
+      colorPunto = "#FF9F43";
+    } else {
+      colorPunto = "#63C7E8";
+    }
+
+    L.circleMarker([d.lat, d.lon], {
+      radius: 5,
+      color: colorPunto,
+      fillColor: colorPunto,
+      fillOpacity: 0.8,
+      weight: 1
+    })
+      .bindPopup(`
+        <strong>${d.fuente}</strong>
+        <p>MODIS: ${d.modis}</p>
+        <p>VIIRS: ${d.viirs}</p>
+        <p>Detecciones asociadas: ${d.detecciones_asociadas}</p>
+      `)
+      .addTo(capaHistorica);
+  });
+
+  // Ajustar el tamaño cuando el mapa esté visible
+  setTimeout(() => mapaHistorico.invalidateSize(), 100);
 }
 
-/* ---------- metodología ---------- */
-function pintarMetodo() {
-  $("#tabla-rangos").innerHTML = `<thead><tr><th>Variable</th><th>Rango estable (neutro)</th><th>Nivel crítico</th><th>Peso</th><th>Por qué importa</th><th>¿Se puede influir?</th></tr></thead><tbody>` +
-    RANGOS.variables.map((v) => {
-      const bajoMalo = v.estable > v.critico;
-      return `<tr><td><strong>${esc(v.nombre)}</strong></td><td class="num">${bajoMalo ? "≥" : "≤"} ${v.estable} ${esc(v.unidad)}${v.clave === "tmax" ? "*" : ""}</td><td class="num">${bajoMalo ? "≤" : "≥"} ${v.critico} ${esc(v.unidad)}${v.clave === "tmax" ? "*" : ""}</td><td class="num">${pct(v.peso)}%</td><td>${esc(v.regla)}</td><td>${esc(v.palanca)}</td></tr>`;
-    }).join("") + "</tbody>";
-  $("#notas-metodo").innerHTML = `
-    <p>* ${esc(RANGOS.nota_temperatura)} Los valores de temperatura de la tabla son solo una referencia general; el detalle de cada departamento muestra los valores ya ajustados.</p>
-    <p><strong>Índice de peligro</strong> = suma de (peso × puntaje) de las seis variables, donde cada puntaje va de 0 (estable) a 1 (crítico). El <strong>riesgo</strong> lo ajusta según la presión de ignición del mes (quemas agrícolas y de pastos, más frecuentes entre febrero y mayo).</p>
-    <p><strong>Equilibrio ambiental</strong> = 100 × (1 − índice de peligro). Si es 100, todas las variables están dentro del rango estable.</p>`;
+
+/* ---------------------------------------------------------------
+   Consulta de detecciones históricas MODIS y VIIRS
+---------------------------------------------------------------- */
+async function consultarHistorico() {
+  const fecha = $("#fecha-historico").value;
+  const resumen = $("#resumen-historico");
+  const boton = $("#btn-consultar-historico");
+
+  if (!fecha) {
+    resumen.textContent = "Selecciona una fecha para consultar.";
+    return;
+  }
+
+  boton.disabled = true;
+  resumen.textContent = "Consultando detecciones históricas...";
+
+  try {
+    const respuesta = await fetch(
+      `/api/historico?fecha=${encodeURIComponent(fecha)}`
+    );
+
+    const datos = await respuesta.json();
+
+    if (!respuesta.ok) {
+      throw new Error(datos.error || "No se pudo consultar la información.");
+    }
+
+   deteccionesHistoricas = datos.detecciones;
+
+  filtrarHistorico();
+
+  } catch (error) {
+    resumen.textContent = `Error: ${error.message}`;
+    console.error("Error al consultar el histórico:", error);
+
+  } finally {
+    boton.disabled = false;
+  }
 }
 
+
+function cambiarPestana(tab) {
+  S.tab = tab;
+  $$(".pestanas button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tab === tab ? "true" : "false"));
+  $("#vista-mapa").hidden = tab !== "mapa";
+  $("#vista-cal").hidden = tab !== "cal";
+  $("#vista-met").hidden = tab !== "met";
+  $("#vista-hist").hidden = tab !== "hist";
+  pintarTodo();
+}
+
+function cambiarVista(v) {
+  S.vista = v;
+  $$(".segmento button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.vista === v ? "true" : "false"));
+  $("#hexmapa").hidden = v !== "hex";
+  $("#satmapa").hidden = v !== "sat";
+  $("#nota-mapa").textContent = v === "hex" ? t().interp : t().satNote(fIso(ESTADO.fecha_imagenes));
+  pintarTodo();
+}
+
+function alternarPlay() {
+  const btn = $("#btn-play");
+  if (reloj) { clearInterval(reloj); reloj = null; btn.classList.remove("sonando"); btn.setAttribute("aria-label", t().play); return; }
+  if (S.di >= DIARIO.fechas.length - 1) S.di = 0;
+  btn.classList.add("sonando"); btn.setAttribute("aria-label", t().pause);
+  reloj = setInterval(() => {
+    if (S.di >= DIARIO.fechas.length - 1) { alternarPlay(); return; }
+    irA(S.di + 1);
+  }, 220);
+}
+
+function conectarEventos() {
+  $$(".pestanas button").forEach((b) => b.addEventListener("click", () => cambiarPestana(b.dataset.tab)));
+  $$(".segmento button").forEach((b) => b.addEventListener("click", () => cambiarVista(b.dataset.vista)));
+  $("#btn-play").addEventListener("click", alternarPlay);
+  $("#btn-hoy").addEventListener("click", () => irA(HOY));
+  $("#btn-pico").addEventListener("click", () => { S.sel = null; irA(PICO); });
+  $("#btn-ver-mapa").addEventListener("click", () => cambiarPestana("mapa"));
+  $("#btn-idioma").addEventListener("click", () => { S.lang = S.lang === "es" ? "en" : "es"; traducir(); pintarTodo(); });
+  // Delegación: un solo "escuchador" para botones creados dinámicamente
+  document.addEventListener("click", (e) => {
+    const dep = e.target.closest("[data-dep]");
+    if (dep) seleccionar(dep.dataset.dep);
+    const dia = e.target.closest("[data-dia]");
+    if (dia && dia.tagName === "BUTTON") irA(+dia.dataset.dia);
+  });
+}
+
+/* ---------------------------------------------------------------
+   Traducción de textos fijos y pintado general
+---------------------------------------------------------------- */
+function traducir() {
+  document.documentElement.lang = S.lang;
+  $$("[data-i18n]").forEach((el) => { const v = t()[el.dataset.i18n]; if (typeof v === "string") el.textContent = v; });
+  const bi = $("#btn-idioma");
+  bi.textContent = t().langBtn; bi.setAttribute("aria-label", t().langLabel);
+  $("#btn-play").setAttribute("aria-label", reloj ? t().pause : t().play);
+  $("#nota-mapa").textContent = S.vista === "hex" ? t().interp : t().satNote(fIso(ESTADO.fecha_imagenes));
+}
+
+function pintarTodo() {
+  // Pie con la fuente de los datos y aviso si hay datos simulados
+  $("#pie-fuente").textContent = t().source(fIso(ESTADO.ultimo_dato));
+  const sim = (ESTADO.fuentes && ESTADO.fuentes.SIMULADO) || 0;
+  $("#aviso").hidden = !sim;
+  if (sim) $("#aviso").textContent = t().simWarn(sim);
+
+  if (S.tab === "mapa") {
+    if (S.vista === "hex") pintarHexagonos(); else pintarSatelite();
+    pintarNacional(); pintarLineaTiempo(); pintarPanel();
+  } else if (S.tab === "cal") {
+    pintarCalendario();
+  } else if (S.tab === "met") {
+    pintarMetodo();
+  }
+}
+
+traducir.inicial = () => $$("[data-i18n]").forEach((el) => { const v = T.es[el.dataset.i18n]; if (typeof v === "string" && !el.textContent.trim()) el.textContent = v; });
+traducir.inicial();
 init();
+
+document.querySelector("#btn-consultar-historico")
+  .addEventListener("click", consultarHistorico);
+  document.querySelector("#sensor-historico")
+  .addEventListener("change", () => {
+    if (deteccionesHistoricas.length > 0) {
+      filtrarHistorico();
+    }
+  });

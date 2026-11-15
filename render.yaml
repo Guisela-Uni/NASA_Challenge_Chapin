@@ -1,8 +1,11 @@
+# Despliegue en Render (Blueprint).
+# Sin rootDir: el servicio necesita la carpeta armonizacion/ (histórico MODIS + VIIRS),
+# que está fuera de fuegoalerta-gt/. Render no deja leer archivos fuera del rootDir,
+# así que se arranca desde la raíz del repo y gunicorn entra a fuegoalerta-gt con --chdir.
 services:
   - type: web
     name: fuegoalerta-gt
     runtime: python
-    rootDir: fuegoalerta-gt
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 120
+    buildCommand: pip install -r fuegoalerta-gt/requirements.txt
+    startCommand: gunicorn --chdir fuegoalerta-gt app:app --workers 1 --threads 4 --timeout 120
     plan: free

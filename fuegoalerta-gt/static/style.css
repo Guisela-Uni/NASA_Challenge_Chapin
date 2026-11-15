@@ -60,6 +60,9 @@ a { color: var(--lima); }
 .tile-lima { background: var(--lima); color: var(--bosque-tinta); }
 .tile-menta { background: var(--menta); color: var(--bosque); }
 .tile-mapa { grid-column: span 2; grid-row: span 3; }
+/* El mapa es más alto que los bloques de la derecha: el espacio sobrante va a la última fila
+   (ranking y acción), en lugar de estirar "Nivel nacional" y la línea de tiempo. */
+#vista-mapa { grid-template-rows: auto auto auto; }
 .tile-cab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
 .titulo { margin: 0; font-family: var(--fuente-titulo); font-size: 24px; font-weight: 700; letter-spacing: -0.4px; }
 .titulo-grande { margin: 0; font-family: var(--fuente-titulo); font-size: 30px; font-weight: 700; line-height: 1.1; letter-spacing: -0.6px; }
@@ -85,12 +88,12 @@ a { color: var(--lima); }
 .etiqueta { position: absolute; z-index: 2; transform: translate(12px, -50%); white-space: nowrap; pointer-events: none; padding: 3px 8px; border-radius: 8px; background: var(--bosque); font-size: 12px; font-weight: 600; }
 .etiqueta b { color: var(--lima); font-weight: 600; }
 
-.satmapa { width: 100%; aspect-ratio: 0.942 / 1; max-height: 620px; border-radius: 16px; overflow: hidden; background: var(--bosque); }
+.satmapa { width: 100%; flex: 1 1 auto; min-height: 380px; border-radius: 16px; overflow: hidden; background: var(--bosque); }
 .leaflet-container { background: var(--bosque); font-family: var(--fuente-texto); }
 
 .leyenda { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: auto; }
 .escala { display: flex; flex-direction: column; gap: 6px; width: 240px; }
-.escala-barra { height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--bosque-3) 0%, var(--menta) 47%, var(--lima) 100%); }
+.escala-barra { height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--bosque-3) 0%, var(--menta) 50%, var(--lima) 100%); }
 .escala-ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--suave); }
 #nota-mapa { max-width: 230px; text-align: right; }
 
@@ -137,9 +140,10 @@ a { color: var(--lima); }
 .cal-celda { min-height: 52px; padding: 7px 9px; border-radius: 12px; border: 2px solid transparent; color: var(--bosque-tinta); display: flex; flex-direction: column; justify-content: space-between; text-align: left; }
 .cal-celda small { font-size: 11px; }
 .cal-celda strong { font-family: var(--fuente-titulo); font-size: 16px; font-weight: 700; }
-.cal-celda.pred { border-style: dashed; border-color: var(--linea-fuerte); opacity: .88; }
-.cal-celda.hoy { border-style: solid; border-color: var(--lima); }
-.cal-celda.sel { border-style: solid; border-color: var(--texto); opacity: 1; }
+.cal-celda.pred { border-style: dashed; border-color: rgba(255,255,255,.55); opacity: .92; }
+.cal-celda.hoy { border-style: solid; border-color: var(--texto); box-shadow: 0 0 0 2px #0D1F14 inset; }
+.cal-celda.sel { border-style: solid; border-color: var(--lima); opacity: 1; outline: 2px solid var(--lima); outline-offset: 1px; }
+.cal-celda.vacia { background: transparent; color: var(--suave); opacity: .35; border: 1px dashed var(--linea); }
 
 /* ---------- método ---------- */
 .formula { font-family: var(--fuente-titulo); font-size: 20px; font-weight: 600; line-height: 1.4; }
@@ -149,17 +153,19 @@ a { color: var(--lima); }
 .met-var .cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 600; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; }
 .chip { padding: 4px 10px; border-radius: 999px; font-weight: 600; }
-.chip-menta { background: var(--menta); color: var(--bosque); }
-.chip-lima { background: var(--lima); color: var(--bosque-tinta); }
+.chip-verde { background: var(--menta); color: var(--bosque); }
+.chip-rojo { background: var(--lima); color: var(--bosque-tinta); }
 .met-var p { margin: auto 0 0; font-size: 13px; color: var(--suave); }
 
 .pie { margin-top: 20px; font-size: 12px; color: var(--suave); }
 .pie p { margin: 4px 0; }
+.pie-nasa { text-align: center; font-size: 12px; letter-spacing: 0.4px; color: var(--suave); }
 
 /* ---------- pantallas medianas y celular ---------- */
 @media (max-width: 1100px) {
   .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tile-mapa, .tile-ancho, .tile-cal { grid-column: 1 / -1; grid-row: auto; }
+  #vista-mapa { grid-template-rows: none; }
   .met-vars { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
@@ -169,3 +175,462 @@ a { color: var(--lima); }
   .cal-celda { min-height: 44px; padding: 5px; }
   .pestanas button { padding: 0 12px; }
 }
+
+
+/* ---------------------------------------------------------------
+   Vista histórica MODIS - VIIRS
+---------------------------------------------------------------- */
+
+#vista-hist > .tile {
+  grid-column: 1 / -1;
+}
+
+#mapa-historico {
+  width: 100%;
+  height: 520px;
+  max-height: none;
+  aspect-ratio: auto;
+}
+
+
+/* Leyenda del mapa histórico */
+.leyenda-historico {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding: 8px 0;
+  color: var(--menta);
+  font-size: 14px;
+}
+
+.leyenda-historico span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.leyenda-historico i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.punto-modis {
+  background: #C026D3;
+}
+
+.punto-viirs {
+  background: #FF6A00;
+}
+
+.punto-ambos {
+  background: #DC2626;
+}
+
+/* Controles de consulta histórica */
+.controles-historico {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.controles-historico label {
+  font-weight: 600;
+  color: var(--menta);
+}
+
+#fecha-historico,
+#sensor-historico {
+  padding: 11px 14px;
+  border: 1px solid var(--menta);
+  border-radius: 12px;
+  background: var(--bosque);
+  color: white;
+  font: inherit;
+  color-scheme: dark;
+}
+
+#btn-consultar-historico {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 24px;
+  background: var(--lima);
+  color: var(--bosque);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+#btn-consultar-historico:hover {
+  opacity: 0.85;
+}
+
+#btn-consultar-historico:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+/* Estadísticas de actividad térmica histórica */
+.estadisticas-historico {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.estadistica-historico {
+  background: var(--bosque);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.estadistica-historico span {
+  color: var(--menta);
+  font-size: 13px;
+}
+
+.estadistica-historico strong {
+  color: var(--lima);
+  font-size: 30px;
+  font-weight: 700;
+}
+
+@media (max-width: 800px) {
+  .estadisticas-historico {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Selectores de períodos históricos */
+
+#tipo-periodo-historico,
+#mes-historico,
+#anio-historico {
+  background-color: var(--bosque);
+  color: var(--texto);
+  border: 1px solid var(--menta);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font: inherit;
+  font-size: 15px;
+  min-height: 48px;
+  cursor: pointer;
+  outline: none;
+}
+
+#tipo-periodo-historico:focus,
+#mes-historico:focus,
+#anio-historico:focus {
+  border-color: #D4F27A;
+}
+
+#tipo-periodo-historico option,
+#anio-historico option {
+  background-color: var(--bosque);
+  color: var(--texto);
+}
+
+/* Mantener ocultos los campos que no corresponden al período */
+
+#tipo-periodo-historico[hidden],
+#mes-historico[hidden],
+#anio-historico[hidden] {
+  display: none;
+}
+
+/* Selector del año para consultas mensuales */
+
+#anio-mes-historico {
+  background-color: var(--bosque);
+  color: var(--texto);
+  border: 1px solid var(--menta);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font: inherit;
+  font-size: 15px;
+  min-height: 48px;
+  cursor: pointer;
+  outline: none;
+}
+
+#anio-mes-historico:focus {
+  border-color: #D4F27A;
+}
+
+#anio-mes-historico option {
+  background-color: var(--bosque);
+  color: var(--texto);
+}
+
+#anio-mes-historico[hidden] {
+  display: none;
+}
+/* Gráfica de evolución histórica */
+
+.grafica-historica {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  margin-top: 24px;
+}
+
+#grafica-evolucion-historica {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+@media (max-width: 768px) {
+  .grafica-historica {
+    height: 300px;
+  }
+}
+
+/* Selector de año de la gráfica mensual */
+
+#anio-grafica-mensual {
+  background-color: var(--bosque-2);
+  color: var(--texto);
+  border: 1px solid #D4F27A;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+  min-width: 140px;
+}
+
+#anio-grafica-mensual:focus {
+  border-color: #D4F27A;
+  box-shadow: 0 0 0 2px rgba(212, 242, 122, 0.15);
+}
+
+#anio-grafica-mensual option {
+  background-color: var(--bosque-2);
+  color: var(--texto);
+}
+
+
+/* ========== CALENDARIO HISTÓRICO ARMONIZADO ========== */
+
+.calendario-historico-contenedor {
+  width: 100%;
+  overflow-x: auto;
+  margin: 24px 0;
+  padding-bottom: 10px;
+}
+
+.calendario-historico {
+  display: grid;
+  grid-template-columns: 65px repeat(12, minmax(48px, 1fr));
+  gap: 6px;
+  min-width: 720px;
+}
+
+.cal-hist-encabezado {
+  color: var(--menta);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.cal-hist-anio {
+  color: var(--texto);
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-hist-celda {
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.cal-hist-celda:hover {
+  transform: scale(1.08);
+  border-color: var(--texto);
+  z-index: 1;
+}
+
+.cal-hist-celda:focus-visible {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
+}
+
+/* Niveles de actividad */
+
+.nivel-1 {
+  background-color: #1F3A28;
+}
+
+.nivel-2 {
+  background-color: #2F5E3E;
+}
+
+.nivel-3 {
+  background-color: #5E9C70;
+}
+
+.nivel-4 {
+  background-color: var(--menta);
+}
+
+.nivel-5 {
+  background-color: var(--lima);
+}
+
+/* Leyenda */
+
+.leyenda-calendario-historico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0;
+  font-size: 12px;
+  color: var(--menta);
+}
+
+.escala-calendario-historico {
+  display: flex;
+  gap: 4px;
+}
+
+.escala-calendario-historico .nivel-cal {
+  width: 24px;
+  height: 16px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* Pantallas pequeñas */
+
+@media (max-width: 768px) {
+  .calendario-historico {
+    gap: 4px;
+  }
+
+  .cal-hist-celda {
+    height: 28px;
+  }
+}
+
+/* Mes seleccionado en el calendario histórico */
+
+.cal-hist-celda.seleccionada {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
+  box-shadow: 0 0 12px rgba(212, 242, 122, 0.35);
+}
+
+/* ---------- calendario: encabezado con el mes ---------- */
+.cal-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cal-mes { margin: 0; font-family: var(--fuente-titulo); font-size: 26px; font-weight: 700; letter-spacing: -0.5px; text-align: center; flex: 1; }
+.cal-nav button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--linea-fuerte); background: transparent; font-size: 24px; line-height: 1; color: var(--texto); }
+.cal-nav button:disabled { opacity: .3; cursor: default; }
+
+/* ---------- mapa de focos MODIS + VIIRS ---------- */
+.focos-estado { margin: 0; font-size: 12px; color: var(--suave); }
+.focos-estado.aviso-leve { color: var(--lima); }
+.focos-estado.mal { color: var(--lima); }
+.focos-leyenda { font-size: 12px; color: var(--suave); display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--texto); }
+.dot-viirs { background: #FF6A00; }
+.dot-modis { background: #C026D3; }
+
+/* ---------- buscador de departamentos y municipios ---------- */
+.sr { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.buscador { display: flex; gap: 8px; }
+.buscador input { flex: 1; min-width: 0; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--linea-fuerte); background: var(--bosque); color: var(--texto); font: inherit; font-size: 15px; }
+.buscador input::placeholder { color: var(--suave); }
+.buscador input:focus { outline: 2px solid var(--lima); outline-offset: 1px; }
+.buscador button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: var(--lima); color: var(--bosque-tinta); font-weight: 700; }
+.buscar-lista { list-style: none; margin: 0; padding: 6px; border-radius: 16px; background: var(--bosque); border: 1px solid var(--linea-fuerte); max-height: 260px; overflow: auto; }
+.buscar-lista button { width: 100%; text-align: left; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 10px; background: transparent; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.buscar-lista button:hover, .buscar-lista button:focus-visible { background: var(--bosque-2); }
+.buscar-lista small { color: var(--suave); white-space: nowrap; }
+.buscar-card { border-radius: 18px; padding: 16px; background: var(--bosque); border: 1px solid var(--linea-fuerte); display: flex; flex-direction: column; gap: 10px; }
+.buscar-card h2 { margin: 0; font-family: var(--fuente-titulo); font-size: 22px; letter-spacing: -0.4px; }
+.buscar-card .cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.nivel-chip { display: inline-flex; align-items: baseline; gap: 8px; padding: 8px 16px; border-radius: 999px; font-weight: 800; font-size: 18px; }
+.nivel-chip b { font-family: var(--fuente-titulo); font-size: 26px; }
+.buscar-card .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.buscar-card .nota-prec { font-size: 12px; color: var(--suave); margin: 0; }
+.buscar-card .cerca { padding: 8px 12px; border-radius: 12px; background: var(--bosque-2); font-size: 13px; }
+.buscar-card .cerca.rojo { border: 1px solid var(--lima); }
+
+/* Ranking "Más expuestos": letra más grande y los tres colores para jerarquizar */
+.etq-rank { font-family: var(--fuente-titulo); font-size: 20px; font-weight: 700; color: var(--menta); margin-bottom: 4px; }
+.fila-rank { min-height: 56px; font-size: 18px; font-weight: 500; }
+.rk { min-width: 44px; padding: 4px 10px; border-radius: 999px; text-align: center; font-family: var(--fuente-titulo); font-size: 20px; font-weight: 800; }
+.rk-0 { background: var(--lima); color: var(--bosque-tinta) !important; }
+.rk-1 { background: var(--menta); color: var(--bosque) !important; }
+.rk-2 { background: var(--bosque-3); color: var(--lima) !important; }
+
+/* ===== Concepto E: panel principal en una pantalla =====
+   Mapa a la izquierda (2 filas), indicadores y bloques a la derecha,
+   línea de tiempo delgada a todo el ancho abajo. El mapa nunca baja de 360 px. */
+@media (min-width: 1101px) {
+  #vista-mapa {
+    min-height: calc(100vh - 245px);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: 1fr 1fr auto;
+    grid-template-areas: "mapa mapa nac pico" "mapa mapa rank acc" "tiempo tiempo tiempo tiempo";
+  }
+  #vista-mapa > .tile { min-width: 0; padding: 20px; }
+  #vista-mapa .tile-mapa { grid-area: mapa; gap: 10px; }
+  #tile-nac { grid-area: nac; }
+  #tile-pico { grid-area: pico; }
+  #tile-a { grid-area: rank; }
+  #tile-b { grid-area: acc; }
+  #vista-mapa .tile-tiempo { grid-area: tiempo; padding: 12px 20px; gap: 6px; }
+  #vista-mapa .satmapa { flex: 1 1 auto; min-height: 360px; }
+  #vista-mapa .hexmapa { flex: 1 1 auto; min-height: 360px; max-height: 520px; width: auto; max-width: 100%; }
+  #vista-mapa .cifra { font-size: clamp(40px, 4vw, 64px); }
+  #vista-mapa .barras { height: 40px; }
+  #vista-mapa .btn-play { width: 36px; height: 36px; }
+  #vista-mapa .tiempo-fecha { font-size: 15px; }
+  #vista-mapa .etq-rank { font-size: 18px; }
+  #vista-mapa .fila-rank { min-height: 44px; font-size: 17px; }
+  #vista-mapa .rk { font-size: 17px; min-width: 40px; padding: 2px 10px; }
+  #tile-b .accion-titulo { font-size: 22px; }
+  #tile-b > span:last-child { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; }
+  .pie { margin-top: 12px; }
+}
+
+/* Nivel nacional y Día más crítico: contenido centrado */
+#tile-nac, #tile-pico { justify-content: center; align-items: center; text-align: center; gap: 10px; }
+#tile-nac .cifra, #tile-pico .cifra { margin-top: 0; }
+#tile-pico .btn-contorno { align-self: center; }
+
+/* Indicadores como rectángulos bajos y línea de tiempo bajo los cuatro bloques (columna derecha) */
+@media (min-width: 1101px) {
+  #vista-mapa {
+    min-height: calc(100vh - 230px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "mapa mapa nac pico" "mapa mapa rank acc" "mapa mapa tiempo tiempo";
+  }
+  #tile-nac, #tile-pico { padding: 16px 20px; gap: 4px; min-height: 0; }
+  #vista-mapa #tile-nac .cifra, #vista-mapa #tile-pico .cifra { font-size: clamp(36px, 3.2vw, 48px); letter-spacing: -1.5px; }
+  #tile-pico .btn-contorno { min-height: 32px; font-size: 12px; }
+  #vista-mapa .tile-tiempo { padding: 14px 18px; }
+  #vista-mapa .barras { height: 48px; gap: 1px; }
+}
+
+/* Cursiva en el título del mapa y en los nombres del ranking */
+#t-mapa { font-family: "Playfair Display", Georgia, serif; font-style: italic; font-weight: 700; letter-spacing: 0; }
+.fila-rank > span { font-family: "Playfair Display", Georgia, serif; font-style: italic; font-weight: 600; }

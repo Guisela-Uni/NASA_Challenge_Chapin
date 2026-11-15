@@ -484,6 +484,167 @@ if (periodo === "dia") {
 
 let graficaEvolucionHistorica = null;
 
+
+function prepararSelectorGraficaMensual() {
+  const selector = document.querySelector("#anio-grafica-mensual");
+
+  if (!selector) return;
+
+  selector.innerHTML = "";
+
+  for (let anio = 2025; anio >= 2000; anio--) {
+    const opcion = document.createElement("option");
+
+    opcion.value = anio;
+    opcion.textContent = anio;
+
+    selector.appendChild(opcion);
+  }
+
+  selector.value = "2022";
+  selector.addEventListener("change", pintarEvolucionMensual);
+}
+
+
+let graficaEvolucionMensual = null;
+
+async function pintarEvolucionMensual() {
+  const selector = document.querySelector("#anio-grafica-mensual");
+  const canvas = document.querySelector("#grafica-evolucion-mensual");
+
+  if (!selector || !canvas || typeof Chart === "undefined") return;
+
+  const anio = selector.value;
+
+  try {
+    const respuesta = await fetch(
+      `/api/historico/mensual?anio=${anio}`
+    );
+
+    const datos = await respuesta.json();
+
+    if (!respuesta.ok) {
+      throw new Error(datos.error || "Error al cargar los datos mensuales.");
+    }
+
+    // Evitar mostrar datos de un año anterior si el usuario cambió de selección
+    if (selector.value !== anio) return;
+
+    const nombresMeses = [
+      "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+      "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+    ];
+
+
+const mesMayorActividad = datos.meses.reduce(
+  (mayor, mes) => mes.total > mayor.total ? mes : mayor
+);
+
+const resumenMensual = document.querySelector(
+  "#resumen-grafica-mensual"
+);
+
+if (resumenMensual) {
+  const nombreMes = new Intl.DateTimeFormat("es-GT", {
+    month: "long",
+    timeZone: "UTC"
+  }).format(new Date(Date.UTC(anio, mesMayorActividad.mes - 1, 1)));
+
+  resumenMensual.textContent =
+    `El mes con mayor actividad térmica en ${anio} fue ` +
+    `${nombreMes}, con ${mesMayorActividad.total.toLocaleString()} ` +
+    `registros de actividad por celda y día.`;
+}
+
+
+    if (graficaEvolucionMensual) {
+      graficaEvolucionMensual.destroy();
+    }
+
+    graficaEvolucionMensual = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: nombresMeses,
+        datasets: [
+          {
+            label: "Solo MODIS",
+            data: datos.meses.map(m => m.modis),
+            backgroundColor: "#FF9F43",
+            stack: "actividad"
+          },
+          {
+            label: "Solo VIIRS",
+            data: datos.meses.map(m => m.viirs),
+            backgroundColor: "#63C7E8",
+            stack: "actividad"
+          },
+          {
+            label: "MODIS y VIIRS",
+            data: datos.meses.map(m => m.ambos),
+            backgroundColor: "#D4F27A",
+            stack: "actividad"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+
+        interaction: {
+          mode: "index",
+          intersect: false
+        },
+
+        plugins: {
+          legend: {
+            labels: { color: "#FFFFFF" }
+          },
+          tooltip: {
+            callbacks: {
+              title: function(elementos) {
+                return `${elementos[0].label} de ${anio}`;
+              },
+
+              label: function(contexto) {
+                const valor = contexto.parsed.y || 0;
+
+                return `${contexto.dataset.label}: ${valor.toLocaleString()}`;
+              },
+
+              footer: function(elementos) {
+                const total = elementos.reduce(
+                  (suma, elemento) => suma + (elemento.parsed.y || 0),
+                  0
+                );
+
+                return `Total del mes: ${total.toLocaleString()}`;
+              }
+            }
+          }
+        },
+
+        scales: {
+          x: {
+            stacked: true,
+            ticks: { color: "#8ED8A0" },
+            grid: { display: false }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { color: "#8ED8A0" },
+            grid: { color: "rgba(255,255,255,0.1)" }
+          }
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Error al cargar la gráfica mensual:", error);
+  }
+}
+
+
 async function pintarEvolucionHistorica() {
   const canvas = document.querySelector("#grafica-evolucion-historica");
 
@@ -728,9 +889,23 @@ function cambiarPestana(tab) {
   $("#vista-cal").hidden = tab !== "cal";
   $("#vista-met").hidden = tab !== "met";
   $("#vista-hist").hidden = tab !== "hist";
-  if (tab === "hist" && !graficaEvolucionHistorica) {
-  pintarEvolucionHistorica();
+
+if (tab === "hist") {
+  const selectorMensual = document.querySelector("#anio-grafica-mensual");
+
+  if (selectorMensual && selectorMensual.options.length === 0) {
+    prepararSelectorGraficaMensual();
+  }
+
+  if (!graficaEvolucionMensual) {
+  pintarEvolucionMensual();
 }
+
+  if (!graficaEvolucionHistorica) {
+    pintarEvolucionHistorica();
+  }
+}
+
   pintarTodo();
 }
 

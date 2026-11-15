@@ -290,6 +290,34 @@
   </p>
 </section>
 
+<section class="tile tile-ancho">
+  <h2>Actividad térmica por mes</h2>
+  <p class="sub">
+    Distribución mensual de la actividad térmica detectada
+    en Guatemala durante el año seleccionado.
+  </p>
+
+  <div class="controles-historico">
+    <label for="anio-grafica-mensual">
+      Seleccionar año
+    </label>
+    <select id="anio-grafica-mensual"></select>
+  </div>
+
+  <div class="grafica-historica">
+    <canvas id="grafica-evolucion-mensual"></canvas>
+  </div>
+
+<p id="resumen-grafica-mensual" class="sub">
+  Calculando el mes con mayor actividad térmica...
+</p>
+
+  <p class="sub">
+    Los valores representan registros de actividad por celda y día,
+    no incendios individuales. VIIRS cuenta con datos desde 2012.
+  </p>
+</section>
+
 </main>
 
 

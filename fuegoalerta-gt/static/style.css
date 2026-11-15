@@ -385,3 +385,28 @@ a { color: var(--lima); }
     height: 300px;
   }
 }
+
+/* Selector de año de la gráfica mensual */
+
+#anio-grafica-mensual {
+  background-color: #17261e;
+  color: #ffffff;
+  border: 1px solid #D4F27A;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+  min-width: 140px;
+}
+
+#anio-grafica-mensual:focus {
+  border-color: #D4F27A;
+  box-shadow: 0 0 0 2px rgba(212, 242, 122, 0.15);
+}
+
+#anio-grafica-mensual option {
+  background-color: #17261e;
+  color: #ffffff;
+}

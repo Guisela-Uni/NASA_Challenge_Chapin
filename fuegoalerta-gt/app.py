@@ -219,6 +219,64 @@ def evolucion_historica():
     })
 
 
+@app.route("/api/historico/mensual")
+def historico_mensual():
+    anio_texto = request.args.get("anio", "")
+
+    if not anio_texto.isdigit():
+        return {"error": "Debes indicar un año válido."}, 400
+
+    anio = int(anio_texto)
+
+    if anio < 2000 or anio > 2025:
+        return {"error": "El año debe estar entre 2000 y 2025."}, 400
+
+    meses = [
+        {
+            "mes": mes,
+            "modis": 0,
+            "viirs": 0,
+            "ambos": 0,
+            "total": 0
+        }
+        for mes in range(1, 13)
+    ]
+
+    try:
+        with open(RUTA_HISTORICO, "r", encoding="utf-8-sig", newline="") as archivo:
+            lector = csv.DictReader(archivo)
+
+            for fila in lector:
+                fecha = fila["fecha_gt"]
+
+                if not fecha.startswith(f"{anio}-"):
+                    continue
+
+                mes = int(fecha[5:7])
+                registro = meses[mes - 1]
+
+                modis = int(fila["MODIS"]) > 0
+                viirs = int(fila["VIIRS"]) > 0
+
+                if modis and viirs:
+                    registro["ambos"] += 1
+                elif modis:
+                    registro["modis"] += 1
+                elif viirs:
+                    registro["viirs"] += 1
+
+                registro["total"] += 1
+
+        return {
+            "anio": anio,
+            "unidad": "registros de actividad por celda y día",
+            "meses": meses
+        }
+
+    except (OSError, ValueError, KeyError) as error:
+        return {"error": f"No se pudieron procesar los datos: {error}"}, 500
+
+
 @app.route("/api/status")
 def status():
     return jsonify(almacen.resumen())

@@ -32,6 +32,7 @@
       <button type="button" data-tab="mapa" aria-pressed="true" data-i18n="tabMap">Mapa</button>
       <button type="button" data-tab="cal" aria-pressed="false" data-i18n="tabCal">Calendario</button>
       <button type="button" data-tab="met" aria-pressed="false" data-i18n="tabMet">Método</button>
+      <button type="button" data-tab="hist" aria-pressed="false">Histórico</button>
     </nav>
     <button type="button" id="btn-idioma" class="btn-redondo" aria-label="Switch to English">EN</button>
   </header>
@@ -42,28 +43,38 @@
   <main id="vista-mapa" class="bento">
     <section class="tile tile-mapa" aria-labelledby="t-mapa">
       <div class="tile-cab">
-        <h1 id="t-mapa" class="titulo" data-i18n="mapTitle">Mapa de riesgo</h1>
+        <h1 id="t-mapa" class="titulo" data-i18n="mapTitle">Mapa de incendios · MODIS + VIIRS</h1>
         <div class="segmento" role="group" aria-label="Vista del mapa">
-          <button type="button" data-vista="hex" aria-pressed="true" data-i18n="viewRisk">Riesgo</button>
-          <button type="button" data-vista="sat" aria-pressed="false" data-i18n="viewSat">Satélite VIIRS</button>
+          <button type="button" data-vista="sat" aria-pressed="true" data-i18n="viewSat">Satélites MODIS + VIIRS</button>
+          <button type="button" data-vista="hex" aria-pressed="false" data-i18n="viewRisk">Riesgo</button>
         </div>
       </div>
+      <form id="buscador" class="buscador" role="search" autocomplete="off">
+        <label for="q-buscar" class="sr" data-i18n="searchLabel">Buscar departamento o municipio</label>
+        <input id="q-buscar" type="search" maxlength="80" placeholder="Buscar departamento o municipio (ej. Cobán, Zacapa, Chiquimula…)" data-i18n-ph="searchPh">
+        <button type="submit" id="btn-buscar" data-i18n="searchBtn">Buscar</button>
+      </form>
+      <ul id="buscar-lista" class="buscar-lista" hidden></ul>
+      <p id="buscar-msg" class="focos-estado" role="status" hidden></p>
       <p class="sub" id="mapa-fecha"></p>
+      <p id="focos-estado" class="focos-estado" role="status">Consultando los focos de calor de NASA FIRMS…</p>
 
-      <div id="hexmapa" class="hexmapa">
+      <div id="hexmapa" class="hexmapa" hidden>
         <svg id="hex-svg" viewBox="0 0 94.2 100" aria-hidden="true"></svg>
         <div id="hex-marcadores"></div>
       </div>
-      <div id="satmapa" class="satmapa" hidden></div>
+      <div id="satmapa" class="satmapa"></div>
 
       <div class="leyenda">
         <div class="escala">
           <span class="sub" data-i18n="riskScale">Riesgo (0–100)</span>
           <span class="escala-barra" aria-hidden="true"></span>
-          <span class="escala-ticks" aria-hidden="true"><span>0</span><span>15</span><span>30+</span></span>
+          <span class="escala-ticks" aria-hidden="true"><span>0</span><span>25</span><span>50+</span></span>
         </div>
-        <span class="nota" id="nota-mapa" data-i18n="interp">Superficie interpolada entre 22 puntos de NASA POWER.</span>
+        <span class="focos-leyenda" aria-hidden="false"><i class="dot dot-viirs"></i> VIIRS (375 m) <i class="dot dot-modis"></i> MODIS (1 km) · color pleno = hoy, tenue = noche anterior</span>
+        <span class="nota" id="nota-mapa"></span>
       </div>
+      <div id="buscar-card" class="buscar-card" hidden></div>
     </section>
 
     <section class="tile tile-lima">
@@ -105,9 +116,14 @@
         <h1 class="titulo" data-i18n="calTitle">Calendario de riesgo</h1>
         <span class="sub" id="cal-alcance"></span>
       </div>
+      <div class="cal-nav">
+        <button type="button" id="cal-prev" aria-label="Mes anterior">‹</button>
+        <h2 id="cal-mes" class="cal-mes" aria-live="polite"></h2>
+        <button type="button" id="cal-next" aria-label="Mes siguiente">›</button>
+      </div>
       <div class="cal-dias" aria-hidden="true" id="cal-semana"></div>
       <div class="cal-grid" id="cal-grid"></div>
-      <p class="sub" data-i18n="calLegend">Borde punteado = pronóstico · Borde lima = hoy · Número = riesgo (0–100)</p>
+      <p class="sub" data-i18n="calLegend">Borde punteado = pronóstico · Borde blanco = hoy · Número = riesgo (0–100)</p>
     </section>
     <div class="columna">
       <section class="tile tile-lima">
@@ -121,6 +137,245 @@
       </section>
     </div>
   </main>
+
+<!-- ============ VISTA HISTÓRICO ============ -->
+<main id="vista-hist" class="bento" hidden>
+  <section class="tile tile-ancho">
+    <h1 class="titulo">Histórico de actividad térmica</h1>
+    <p class="sub">
+      Consulta de detecciones satelitales MODIS y VIIRS
+      en Guatemala, desde el año 2000 hasta 2025.
+    </p>
+
+<div class="controles-historico">
+  <label for="tipo-periodo-historico">Período:</label>
+
+<select id="tipo-periodo-historico">
+    <option value="dia">Día</option>
+    <option value="mes">Mes</option>
+    <option value="anio">Año</option>
+</select>
+  <label for="fecha-historico">Seleccionar fecha:</label>
+
+  <input
+    type="date"
+    id="fecha-historico"
+    min="2000-01-01"
+    max="2025-12-31"
+    value="2020-04-15"
+  />
+
+
+<label for="mes-historico" id="label-mes-historico" hidden>
+    Seleccionar mes:
+</label>
+
+
+<select id="mes-historico" hidden>
+
+    <option value="01">Enero</option>
+    <option value="02">Febrero</option>
+    <option value="03">Marzo</option>
+    <option value="04">Abril</option>
+    <option value="05" selected>Mayo</option>
+    <option value="06">Junio</option>
+    <option value="07">Julio</option>
+    <option value="08">Agosto</option>
+    <option value="09">Septiembre</option>
+    <option value="10">Octubre</option>
+    <option value="11">Noviembre</option>
+    <option value="12">Diciembre</option>
+</select>
+<label for="anio-mes-historico" id="label-anio-mes-historico" hidden>
+    Año:
+</label>
+
+<select id="anio-mes-historico" hidden></select>
+
+
+<label for="anio-historico" id="label-anio-historico" hidden>
+    Seleccionar año:
+</label>
+
+
+<select id="anio-historico" hidden>
+    <option value="2000">2000</option>
+    <option value="2001">2001</option>
+    <option value="2002">2002</option>
+    <option value="2003">2003</option>
+    <option value="2004">2004</option>
+    <option value="2005">2005</option>
+    <option value="2006">2006</option>
+    <option value="2007">2007</option>
+    <option value="2008">2008</option>
+    <option value="2009">2009</option>
+    <option value="2010">2010</option>
+    <option value="2011">2011</option>
+    <option value="2012">2012</option>
+    <option value="2013">2013</option>
+    <option value="2014">2014</option>
+    <option value="2015">2015</option>
+    <option value="2016">2016</option>
+    <option value="2017">2017</option>
+    <option value="2018">2018</option>
+    <option value="2019">2019</option>
+    <option value="2020">2020</option>
+    <option value="2021">2021</option>
+    <option value="2022" selected>2022</option>
+    <option value="2023">2023</option>
+    <option value="2024">2024</option>
+    <option value="2025">2025</option>
+</select>
+
+
+
+<label for="sensor-historico">Sensor:</label>
+
+<select id="sensor-historico">
+  <option value="todos">Todos</option>
+  <option value="modis">MODIS</option>
+  <option value="viirs">VIIRS</option>
+  <option value="ambos">Ambos sensores</option>
+</select>
+
+
+  <button type="button" id="btn-consultar-historico">
+    Consultar detecciones
+  </button>
+</div>
+
+<p id="resumen-historico" class="sub"></p>
+
+<div class="estadisticas-historico">
+  <div class="estadistica-historico">
+    <span>Celdas activas</span>
+    <strong id="hist-total">—</strong>
+  </div>
+
+  <div class="estadistica-historico">
+    <span>Celdas MODIS</span>
+    <strong id="hist-modis">—</strong>
+  </div>
+
+  <div class="estadistica-historico">
+    <span>Celdas VIIRS</span>
+    <strong id="hist-viirs">—</strong>
+  </div>
+
+  <div class="estadistica-historico">
+    <span>Ambos sensores</span>
+    <strong id="hist-ambos">—</strong>
+  </div>
+</div>
+
+
+  </section>
+
+  <section class="tile tile-ancho">
+    <h2>Detecciones históricas</h2>
+    <p class="sub">
+      Celdas con actividad térmica en el período elegido, armonizando
+      las detecciones de MODIS (desde 2000) y VIIRS (desde 2012).
+    </p>
+    <div id="mapa-historico" class="satmapa"></div>
+
+    <div class="leyenda-historico">
+      <span><i class="punto-modis"></i> Solo MODIS</span>
+      <span><i class="punto-viirs"></i> Solo VIIRS</span>
+      <span><i class="punto-ambos"></i> MODIS y VIIRS</span>
+    </div>
+
+  </section>
+  
+<!-- ============ CALENDARIO HISTÓRICO ARMONIZADO ============ -->
+<section class="tile tile-ancho">
+  <h2>Calendario histórico de actividad térmica</h2>
+
+  <p class="sub">
+    Visualización de la actividad térmica detectada en Guatemala
+    por MODIS y VIIRS entre 2000 y 2025.
+    Cada celda representa un mes de un año.
+  </p>
+
+  <div class="calendario-historico-contenedor">
+    <div id="calendario-historico" class="calendario-historico">
+      <p class="sub">Cargando calendario histórico...</p>
+    </div>
+  </div>
+
+  <div class="leyenda-calendario-historico">
+    <span>Menor actividad</span>
+
+    <div class="escala-calendario-historico">
+      <span class="nivel-cal nivel-1"></span>
+      <span class="nivel-cal nivel-2"></span>
+      <span class="nivel-cal nivel-3"></span>
+      <span class="nivel-cal nivel-4"></span>
+      <span class="nivel-cal nivel-5"></span>
+    </div>
+
+    <span>Mayor actividad</span>
+  </div>
+
+  <p class="sub">
+    Los colores representan la cantidad de registros de actividad
+    térmica por celda y día, no incendios individuales.
+    La disponibilidad de datos varía según el sensor y el año.
+  </p>
+</section>
+
+<section class="tile tile-ancho">
+  <h2>Evolución histórica de la actividad térmica</h2>
+
+  <p class="sub">
+    Comparación anual de la actividad térmica registrada
+    en Guatemala entre 2000 y 2025.
+  </p>
+
+  <div class="grafica-historica">
+    <canvas id="grafica-evolucion-historica"></canvas>
+  </div>
+
+  <p class="sub">
+    La gráfica representa registros de actividad por celda y día,
+    no incendios individuales. Los datos de VIIRS comienzan en 2012.
+  </p>
+</section>
+
+<section class="tile tile-ancho">
+  <h2>Actividad térmica por mes</h2>
+  <p class="sub">
+    Distribución mensual de la actividad térmica detectada
+    en Guatemala durante el año seleccionado.
+  </p>
+
+  <div class="controles-historico">
+    <label for="anio-grafica-mensual">
+      Seleccionar año
+    </label>
+    <select id="anio-grafica-mensual"></select>
+  </div>
+
+  <div class="grafica-historica">
+    <canvas id="grafica-evolucion-mensual"></canvas>
+  </div>
+
+<p id="resumen-grafica-mensual" class="sub">
+  Calculando el mes con mayor actividad térmica...
+</p>
+
+  <p class="sub">
+    Los valores representan registros de actividad por celda y día,
+    no incendios individuales. VIIRS cuenta con datos desde 2012.
+  </p>
+</section>
+
+
+
+
+
+</main>
+
 
   <!-- ============ VISTA MÉTODO ============ -->
   <main id="vista-met" class="bento" hidden>
@@ -143,6 +398,8 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
+
 </body>
 </html>

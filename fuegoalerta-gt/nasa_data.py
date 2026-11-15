@@ -12,8 +12,8 @@ Variables solicitadas:
     GWETTOP      humedad del suelo superficial (fracción 0-1)
 
 Si la API no responde (sin internet, bloqueo de red, etc.) la aplicación NO se
-detiene: genera datos SIMULADOS con un patrón estacional razonable y lo indica
-claramente en la interfaz (fuente = "SIMULADO").
+detiene: usa la última copia REAL guardada en cache/ y lo avisa; si no hay ninguna,
+muestra el error (los datos SIMULADOS solo existen con MODO_DEMO=1).
 """
 import datetime as dt
 import json
@@ -199,6 +199,7 @@ class Almacen:
         self.version = 0
         self._candado = threading.Lock()
         self._fallos_red = 0
+        self.error = None
         self._ultimo_intento = None   # evita reintentar la descarga en cada visita
 
     # -- estado ---------------------------------------------------------
@@ -215,7 +216,7 @@ class Almacen:
             if d.get("error") and d["error"] not in errores:
                 errores.append(d["error"])
         return {"listo": self.listo, "cargando": self.cargando, "cargados": self.cargados,
-                "total": self.total, "fuentes": fuentes, "errores": errores[:3]}
+                "total": self.total, "fuentes": fuentes, "errores": errores[:3], "error": self.error}
 
     # -- carga ----------------------------------------------------------
     def _cargar_uno(self, dep):
@@ -246,9 +247,12 @@ class Almacen:
             if viejo:                 # datos reales aunque no sean de hoy
                 viejo["error"] = error
                 return viejo
-        filas = simular(dep, inicio, hoy)
-        return {"filas": filas, "fuente": "SIMULADO",
-                "actualizado": dt.datetime.now().isoformat(timespec="seconds"), "error": error}
+        if MODO_DEMO:
+            filas = simular(dep, inicio, hoy)
+            return {"filas": filas, "fuente": "SIMULADO",
+                    "actualizado": dt.datetime.now().isoformat(timespec="seconds"), "error": error}
+        # Sin datos reales (ni nuevos ni en caché) NO se inventan valores: se informa el error.
+        return {"filas": None, "fuente": "ERROR", "actualizado": None, "error": error}
 
     def _trabajo(self):
         self._fallos_red = 0
@@ -263,9 +267,14 @@ class Almacen:
 
         with ThreadPoolExecutor(max_workers=4) as pool:
             list(pool.map(tarea, DEPARTAMENTOS))
+        fallidos = [d["error"] for d in nuevos.values() if d["filas"] is None]
         with self._candado:
-            self.datos = nuevos
-            self.version += 1
+            if fallidos:
+                self.error = fallidos[0]          # se conservan los datos anteriores, si los hay
+            else:
+                self.error = None
+                self.datos = nuevos
+                self.version += 1
             self.cargando = False
 
     def _precargar_cache_vieja(self):
@@ -290,6 +299,8 @@ class Almacen:
             if self.cargando:
                 return
             ahora = dt.datetime.now()
+            if self.error and not self.datos and self._ultimo_intento and (ahora - self._ultimo_intento).total_seconds() < 30:
+                return                         # tras un fallo sin datos se espera 30 s para reintentar
             if self.datos and not forzar:
                 antiguo = min(dt.datetime.fromisoformat(d["actualizado"]) for d in self.datos.values())
                 if (ahora - antiguo).total_seconds() < TTL_HORAS * 3600:

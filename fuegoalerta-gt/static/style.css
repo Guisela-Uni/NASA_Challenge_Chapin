@@ -301,3 +301,68 @@ a { color: var(--lima); }
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Selectores de períodos históricos */
+
+#tipo-periodo-historico,
+#mes-historico,
+#anio-historico {
+  background-color: #0B2117;
+  color: #FFFFFF;
+  border: 1px solid #8ED8A0;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font: inherit;
+  font-size: 15px;
+  min-height: 48px;
+  cursor: pointer;
+  outline: none;
+}
+
+#tipo-periodo-historico:focus,
+#mes-historico:focus,
+#anio-historico:focus {
+  border-color: #D4F27A;
+}
+
+#tipo-periodo-historico option,
+#anio-historico option {
+  background-color: #0B2117;
+  color: #FFFFFF;
+}
+
+/* Mantener ocultos los campos que no corresponden al período */
+
+#tipo-periodo-historico[hidden],
+#mes-historico[hidden],
+#anio-historico[hidden] {
+  display: none;
+}
+
+/* Selector del año para consultas mensuales */
+
+#anio-mes-historico {
+  background-color: #0B2117;
+  color: #FFFFFF;
+  border: 1px solid #8ED8A0;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font: inherit;
+  font-size: 15px;
+  min-height: 48px;
+  cursor: pointer;
+  outline: none;
+}
+
+#anio-mes-historico:focus {
+  border-color: #D4F27A;
+}
+
+#anio-mes-historico option {
+  background-color: #0B2117;
+  color: #FFFFFF;
+}
+
+#anio-mes-historico[hidden] {
+  display: none;
+}

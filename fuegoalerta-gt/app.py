@@ -50,48 +50,120 @@ def index():
     return render_template("index.html")
 
 
+
 @app.route("/api/historico")
 def historico():
-    # Obtener la fecha solicitada desde la página
     fecha = request.args.get("fecha", "").strip()
+    mes = request.args.get("mes", "").strip()
+    anio = request.args.get("anio", "").strip()
 
-    # Comprobar que la fecha tenga el formato correcto
-    try:
-        dt.date.fromisoformat(fecha)
-    except ValueError:
+    # Solo se permite un tipo de consulta a la vez
+    if sum(bool(x) for x in (fecha, mes, anio)) != 1:
         return jsonify({
-            "error": "Debes proporcionar una fecha válida (AAAA-MM-DD)."
+            "error": "Debes indicar una fecha, un mes o un año."
         }), 400
 
-    # Verificar que exista el archivo histórico
+    try:
+        if fecha:
+            dt.date.fromisoformat(fecha)
+            periodo = "dia"
+            valor = fecha
+
+        elif mes:
+            dt.datetime.strptime(mes, "%Y-%m")
+            periodo = "mes"
+            valor = mes
+
+        else:
+            if len(anio) != 4 or not anio.isdigit():
+                raise ValueError
+
+            valor_anio = int(anio)
+
+            if not 2000 <= valor_anio <= 2025:
+                raise ValueError
+
+            periodo = "anio"
+            valor = anio
+
+    except ValueError:
+        return jsonify({
+            "error": "El período seleccionado no es válido."
+        }), 400
+
     if not RUTA_HISTORICO.is_file():
         return jsonify({
             "error": "No se encontró el archivo de datos históricos."
         }), 503
 
-    detecciones = []
+    celdas = {}
+    registros_diarios = 0
 
-    # Leer las celdas con actividad de la fecha seleccionada
-    with RUTA_HISTORICO.open("r", encoding="utf-8-sig", newline="") as archivo:
+    with RUTA_HISTORICO.open(
+        "r", encoding="utf-8-sig", newline=""
+    ) as archivo:
+
         lector = csv.DictReader(archivo)
 
         for fila in lector:
-            if fila["fecha_gt"] != fecha:
+            fecha_fila = fila["fecha_gt"]
+
+            if periodo == "dia" and fecha_fila != valor:
                 continue
 
-            detecciones.append({
-                "lat": float(fila["latitude"]),
-                "lon": float(fila["longitude"]),
-                "modis": int(fila["MODIS"]),
-                "viirs": int(fila["VIIRS"]),
-                "ambos_sensores": fila["ambos_sensores"] == "True",
-                "fuente": fila["fuente"],
-                "detecciones_asociadas": int(fila["detecciones_asociadas"])
-            })
+            if periodo == "mes" and not fecha_fila.startswith(valor + "-"):
+                continue
+
+            if periodo == "anio" and not fecha_fila.startswith(valor + "-"):
+                continue
+
+            registros_diarios += 1
+
+            # Identificar una celda geográfica única
+            clave = (fila["celda_x"], fila["celda_y"])
+
+            modis = int(fila["MODIS"])
+            viirs = int(fila["VIIRS"])
+            asociados = int(fila["detecciones_asociadas"])
+
+            if clave not in celdas:
+                celdas[clave] = {
+                    "lat": float(fila["latitude"]),
+                    "lon": float(fila["longitude"]),
+                    "modis": 0,
+                    "viirs": 0,
+                    "ambos_sensores": False,
+                    "detecciones_asociadas": 0,
+                    "dias_activos": 0
+                }
+
+            celda = celdas[clave]
+
+            celda["modis"] += modis
+            celda["viirs"] += viirs
+            celda["detecciones_asociadas"] += asociados
+            celda["dias_activos"] += 1
+
+            if modis > 0 and viirs > 0:
+                celda["ambos_sensores"] = True
+
+    detecciones = list(celdas.values())
+
+    for celda in detecciones:
+        celda["ambos_sensores"] = celda["modis"] > 0 and celda["viirs"] > 0
+        if celda["modis"] > 0 and celda["viirs"] > 0:
+            celda["fuente"] = "MODIS y VIIRS"
+        elif celda["modis"] > 0:
+            celda["fuente"] = "MODIS"
+        else:
+            celda["fuente"] = "VIIRS"
 
     return jsonify({
-        "fecha": fecha,
+        "periodo": periodo,
+        "valor": valor,
+        "fecha": fecha if periodo == "dia" else None,
         "total_celdas": len(detecciones),
+        "registros_diarios": registros_diarios,
         "detecciones": detecciones
     })
 

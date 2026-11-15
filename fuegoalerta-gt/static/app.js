@@ -435,6 +435,21 @@ async function seleccionar(id) {
 }
 
 
+function actualizarEstadisticasHistoricas() {
+  const datos = deteccionesHistoricas;
+
+  const total = datos.length;
+  const modis = datos.filter(d => d.modis > 0).length;
+  const viirs = datos.filter(d => d.viirs > 0).length;
+  const ambos = datos.filter(d => d.modis > 0 && d.viirs > 0).length;
+
+  $("#hist-total").textContent = total;
+  $("#hist-modis").textContent = modis;
+  $("#hist-viirs").textContent = viirs;
+  $("#hist-ambos").textContent = ambos;
+}
+
+
 function filtrarHistorico() {
   const sensor = $("#sensor-historico").value;
 
@@ -447,9 +462,23 @@ function filtrarHistorico() {
 
   pintarMapaHistorico(filtradas);
 
-  const fecha = $("#fecha-historico").value;
+  const periodo = $("#tipo-periodo-historico").value;
+
+let descripcionPeriodo;
+
+if (periodo === "dia") {
+  descripcionPeriodo = `el ${$("#fecha-historico").value}`;
+} else if (periodo === "mes") {
+  const selectorMes = $("#mes-historico");
+  const nombreMes = selectorMes.options[selectorMes.selectedIndex].textContent;
+  const anio = $("#anio-mes-historico").value;
+
+  descripcionPeriodo = `durante ${nombreMes.toLowerCase()} de ${anio}`;
+} else {
+  descripcionPeriodo = `durante el año ${$("#anio-historico").value}`;
+}
   $("#resumen-historico").textContent =
-    `${filtradas.length} de ${deteccionesHistoricas.length} celdas con actividad térmica el ${fecha}.`;
+  `${filtradas.length} de ${deteccionesHistoricas.length} celdas con actividad térmica ${descripcionPeriodo}.`;
 }
 
 
@@ -525,12 +554,28 @@ function pintarMapaHistorico(detecciones) {
    Consulta de detecciones históricas MODIS y VIIRS
 ---------------------------------------------------------------- */
 async function consultarHistorico() {
-  const fecha = $("#fecha-historico").value;
+  
+  const periodo = $("#tipo-periodo-historico").value;
+
+  let parametro;
+  let valor;
+
+  if (periodo === "dia") {
+    parametro = "fecha";
+    valor = $("#fecha-historico").value;
+  } else if (periodo === "mes") {
+    parametro = "mes";
+    valor = `${$("#anio-mes-historico").value}-${$("#mes-historico").value}`;
+  } else {
+    parametro = "anio";
+    valor = $("#anio-historico").value;
+  }
+
   const resumen = $("#resumen-historico");
   const boton = $("#btn-consultar-historico");
 
-  if (!fecha) {
-    resumen.textContent = "Selecciona una fecha para consultar.";
+    if (!valor) {
+    resumen.textContent = "Selecciona un período para consultar.";
     return;
   }
 
@@ -538,27 +583,27 @@ async function consultarHistorico() {
   resumen.textContent = "Consultando detecciones históricas...";
 
   try {
-    const respuesta = await fetch(
-      `/api/historico?fecha=${encodeURIComponent(fecha)}`
-    );
+  const respuesta = await fetch(
+    `/api/historico?${parametro}=${encodeURIComponent(valor)}`
+  );
 
-    const datos = await respuesta.json();
+  const datos = await respuesta.json();
 
-    if (!respuesta.ok) {
-      throw new Error(datos.error || "No se pudo consultar la información.");
-    }
+  if (!respuesta.ok) {
+    throw new Error(datos.error || "No se pudo consultar la información.");
+  }
 
-   deteccionesHistoricas = datos.detecciones;
-
+  deteccionesHistoricas = datos.detecciones;
+  actualizarEstadisticasHistoricas();
   filtrarHistorico();
 
-  } catch (error) {
-    resumen.textContent = `Error: ${error.message}`;
-    console.error("Error al consultar el histórico:", error);
+} catch (error) {
+  resumen.textContent = `Error: ${error.message}`;
+  console.error("Error al consultar el histórico:", error);
 
-  } finally {
-    boton.disabled = false;
-  }
+} finally {
+  boton.disabled = false;
+}
 }
 
 
@@ -641,6 +686,45 @@ function pintarTodo() {
 traducir.inicial = () => $$("[data-i18n]").forEach((el) => { const v = T.es[el.dataset.i18n]; if (typeof v === "string" && !el.textContent.trim()) el.textContent = v; });
 traducir.inicial();
 init();
+
+
+function cambiarPeriodoHistorico() {
+  const periodo = $("#tipo-periodo-historico").value;
+
+  const esDia = periodo === "dia";
+  const esMes = periodo === "mes";
+  const esAnio = periodo === "anio";
+
+  $("#fecha-historico").hidden = !esDia;
+  $("#mes-historico").hidden = !esMes;
+  $("#anio-historico").hidden = !esAnio;
+  $("#anio-mes-historico").hidden = !esMes;
+  $("#label-anio-mes-historico").hidden = !esMes;
+
+  document.querySelector('label[for="fecha-historico"]').hidden = !esDia;
+  $("#label-mes-historico").hidden = !esMes;
+  $("#label-anio-historico").hidden = !esAnio;
+}
+
+const selectorAnioMes = $("#anio-mes-historico");
+
+for (let anio = 2000; anio <= 2025; anio++) {
+  const opcion = document.createElement("option");
+  opcion.value = String(anio);
+  opcion.textContent = String(anio);
+
+  if (anio === 2022) {
+    opcion.selected = true;
+  }
+
+  selectorAnioMes.appendChild(opcion);
+}
+
+document.querySelector("#tipo-periodo-historico").addEventListener(
+  "change",
+  cambiarPeriodoHistorico
+);
+
 
 document.querySelector("#btn-consultar-historico")
   .addEventListener("click", consultarHistorico);

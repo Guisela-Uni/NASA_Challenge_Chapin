@@ -271,6 +271,25 @@
     </div>
 
   </section>
+  
+<section class="tile tile-ancho">
+  <h2>Evolución histórica de la actividad térmica</h2>
+
+  <p class="sub">
+    Comparación anual de la actividad térmica registrada
+    en Guatemala entre 2000 y 2025.
+  </p>
+
+  <div class="grafica-historica">
+    <canvas id="grafica-evolucion-historica"></canvas>
+  </div>
+
+  <p class="sub">
+    La gráfica representa registros de actividad por celda y día,
+    no incendios individuales. Los datos de VIIRS comienzan en 2012.
+  </p>
+</section>
+
 </main>
 
 
@@ -295,6 +314,8 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
+
 </body>
 </html>

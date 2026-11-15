@@ -168,6 +168,57 @@ def historico():
     })
 
 
+
+@app.route("/api/historico/evolucion")
+def evolucion_historica():
+    if not RUTA_HISTORICO.is_file():
+        return jsonify({
+            "error": "No se encontró el archivo histórico."
+        }), 503
+
+    # Preparar todos los años del período histórico
+    resumen = {
+        str(anio): {
+            "anio": anio,
+            "modis": 0,
+            "viirs": 0,
+            "ambos": 0,
+            "total": 0
+        }
+        for anio in range(2000, 2026)
+    }
+
+    # Contar registros de actividad por celda y día
+    with RUTA_HISTORICO.open(
+        "r", encoding="utf-8-sig", newline=""
+    ) as archivo:
+        lector = csv.DictReader(archivo)
+
+        for fila in lector:
+            anio = fila["fecha_gt"][:4]
+
+            if anio not in resumen:
+                continue
+
+            datos = resumen[anio]
+
+            datos["total"] += 1
+
+            if int(fila["MODIS"]) > 0:
+                datos["modis"] += 1
+
+            if int(fila["VIIRS"]) > 0:
+                datos["viirs"] += 1
+
+            if int(fila["MODIS"]) > 0 and int(fila["VIIRS"]) > 0:
+                datos["ambos"] += 1
+
+    return jsonify({
+        "unidad": "registros de actividad por celda y día",
+        "anios": list(resumen.values())
+    })
+
+
 @app.route("/api/status")
 def status():
     return jsonify(almacen.resumen())

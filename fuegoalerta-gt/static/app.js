@@ -482,6 +482,120 @@ if (periodo === "dia") {
 }
 
 
+let graficaEvolucionHistorica = null;
+
+async function pintarEvolucionHistorica() {
+  const canvas = document.querySelector("#grafica-evolucion-historica");
+
+  if (!canvas || typeof Chart === "undefined") {
+    console.error("No se encontró Chart.js o el canvas.");
+    return;
+  }
+
+  try {
+    const respuesta = await fetch("/api/historico/evolucion");
+    const datos = await respuesta.json();
+
+    if (!respuesta.ok) {
+      throw new Error(datos.error || "No se pudieron cargar los datos.");
+    }
+
+
+    const anios = datos.anios.map(d => d.anio);
+
+    const soloModis = datos.anios.map(d => d.modis - d.ambos);
+    const soloViirs = datos.anios.map(d => d.viirs - d.ambos);
+    const ambos = datos.anios.map(d => d.ambos);
+
+
+    if (graficaEvolucionHistorica) {
+      graficaEvolucionHistorica.destroy();
+    }
+
+    graficaEvolucionHistorica = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: anios,
+
+datasets: [
+  {
+    label: "Solo MODIS",
+    data: soloModis,
+    backgroundColor: "#FF9F43",
+    stack: "actividad"
+  },
+  {
+    label: "Solo VIIRS",
+    data: soloViirs,
+    backgroundColor: "#63C7E8",
+    stack: "actividad"
+  },
+  {
+    label: "MODIS y VIIRS",
+    data: ambos,
+    backgroundColor: "#D4F27A",
+    stack: "actividad"
+  }
+]
+
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+        mode: "index",
+        intersect: false
+      },
+        plugins: {
+          legend: {
+            labels: { color: "#FFFFFF" }
+          },
+
+tooltip: {
+  mode: "index",
+  intersect: false,
+
+  callbacks: {
+    label: function(contexto) {
+      const valor = contexto.parsed.y || 0;
+
+      return `${contexto.dataset.label}: ${valor.toLocaleString()}`;
+    },
+
+    footer: function(elementos) {
+      const total = elementos.reduce(
+        (suma, elemento) => suma + (elemento.parsed.y || 0),
+        0
+      );
+
+      return `Total del año: ${total.toLocaleString()}`;
+    }
+  }
+}
+
+        },
+        scales: {
+          x: {
+            stacked: true,
+            ticks: { color: "#8ED8A0" },
+            grid: { display: false }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { color: "#8ED8A0" },
+            grid: { color: "rgba(255,255,255,0.1)" }
+          }
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Error al cargar la evolución histórica:", error);
+  }
+}
+
+
 /* ---------------------------------------------------------------
    Mapa histórico de detecciones MODIS y VIIRS
 ---------------------------------------------------------------- */
@@ -614,6 +728,9 @@ function cambiarPestana(tab) {
   $("#vista-cal").hidden = tab !== "cal";
   $("#vista-met").hidden = tab !== "met";
   $("#vista-hist").hidden = tab !== "hist";
+  if (tab === "hist" && !graficaEvolucionHistorica) {
+  pintarEvolucionHistorica();
+}
   pintarTodo();
 }
 

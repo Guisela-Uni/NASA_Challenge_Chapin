@@ -485,6 +485,123 @@ if (periodo === "dia") {
 let graficaEvolucionHistorica = null;
 
 
+let calendarioHistoricoCargado = false;
+
+async function pintarCalendarioHistorico() {
+  const contenedor = document.querySelector("#calendario-historico");
+
+  if (!contenedor) return;
+
+  try {
+    const respuesta = await fetch("/api/historico/calendario");
+    const datos = await respuesta.json();
+
+    if (!respuesta.ok) {
+      throw new Error(datos.error || "No se pudo cargar el calendario.");
+    }
+
+    const registros = datos.calendario;
+    const meses = [
+      "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+      "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+    ];
+
+    // Usamos una escala relativa para visualizar la distribución.
+    // Los valores exactos se mostrarán al pasar el mouse.
+    const maximo = Math.max(...registros.map(r => r.total), 1);
+
+    contenedor.innerHTML = "";
+
+    const esquina = document.createElement("div");
+    esquina.className = "cal-hist-encabezado";
+    esquina.textContent = "Año";
+    contenedor.appendChild(esquina);
+
+    meses.forEach(mes => {
+      const encabezado = document.createElement("div");
+      encabezado.className = "cal-hist-encabezado";
+      encabezado.textContent = mes;
+      contenedor.appendChild(encabezado);
+    });
+
+    for (let anio = 2000; anio <= 2025; anio++) {
+      const etiquetaAnio = document.createElement("div");
+      etiquetaAnio.className = "cal-hist-anio";
+      etiquetaAnio.textContent = anio;
+      contenedor.appendChild(etiquetaAnio);
+
+      for (let mes = 1; mes <= 12; mes++) {
+        const registro = registros.find(
+          r => r.anio === anio && r.mes === mes
+        );
+
+        const total = registro ? registro.total : 0;
+
+        const nivel = total === 0
+          ? 1
+          : Math.min(5, Math.ceil((total / maximo) * 5));
+
+        const celda = document.createElement("button");
+        celda.type = "button";
+        celda.className = `cal-hist-celda nivel-${nivel}`;
+
+        const nombreMes = meses[mes - 1];
+
+        celda.title =
+          `${nombreMes} de ${anio}: ${total.toLocaleString()} registros`;
+
+        celda.setAttribute(
+          "aria-label",
+          `${nombreMes} de ${anio}: ${total} registros de actividad`
+        );
+
+celda.addEventListener("click", async () => {
+
+// Quitar el resaltado de cualquier mes seleccionado anteriormente.
+document.querySelectorAll(".cal-hist-celda.seleccionada")
+  .forEach(c => c.classList.remove("seleccionada"));
+
+// Resaltar el mes seleccionado.
+celda.classList.add("seleccionada");
+
+  // Cambiar los controles de consulta al período mensual.
+  const tipoPeriodo = document.querySelector("#tipo-periodo-historico");
+  const selectorAnio = document.querySelector("#anio-mes-historico");
+  const selectorMes = document.querySelector("#mes-historico");
+
+  tipoPeriodo.value = "mes";
+  cambiarPeriodoHistorico();
+
+  selectorAnio.value = String(anio);
+  selectorMes.value = String(mes).padStart(2, "0");
+
+  // Consultar las detecciones del mes seleccionado.
+  await consultarHistorico();
+
+  // Desplazarse hasta el mapa histórico.
+  const mapa = document.querySelector("#mapa-historico");
+
+  if (mapa) {
+    mapa.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
+  }
+});
+
+        contenedor.appendChild(celda);
+      }
+    }
+
+    calendarioHistoricoCargado = true;
+
+  } catch (error) {
+    console.error("Error al cargar el calendario histórico:", error);
+    contenedor.textContent = "No se pudo cargar el calendario histórico.";
+  }
+}
+
+
 function prepararSelectorGraficaMensual() {
   const selector = document.querySelector("#anio-grafica-mensual");
 
@@ -891,6 +1008,9 @@ function cambiarPestana(tab) {
   $("#vista-hist").hidden = tab !== "hist";
 
 if (tab === "hist") {
+  if (!calendarioHistoricoCargado) {
+  pintarCalendarioHistorico();
+}
   const selectorMensual = document.querySelector("#anio-grafica-mensual");
 
   if (selectorMensual && selectorMensual.options.length === 0) {

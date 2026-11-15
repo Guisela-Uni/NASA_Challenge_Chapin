@@ -410,3 +410,123 @@ a { color: var(--lima); }
   background-color: #17261e;
   color: #ffffff;
 }
+
+
+/* ========== CALENDARIO HISTÓRICO ARMONIZADO ========== */
+
+.calendario-historico-contenedor {
+  width: 100%;
+  overflow-x: auto;
+  margin: 24px 0;
+  padding-bottom: 10px;
+}
+
+.calendario-historico {
+  display: grid;
+  grid-template-columns: 65px repeat(12, minmax(48px, 1fr));
+  gap: 6px;
+  min-width: 720px;
+}
+
+.cal-hist-encabezado {
+  color: #8ED8A0;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.cal-hist-anio {
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-hist-celda {
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.cal-hist-celda:hover {
+  transform: scale(1.08);
+  border-color: #FFFFFF;
+  z-index: 1;
+}
+
+.cal-hist-celda:focus-visible {
+  outline: 2px solid #FFFFFF;
+  outline-offset: 2px;
+}
+
+/* Niveles de actividad */
+
+.nivel-1 {
+  background-color: #304A3B;
+}
+
+.nivel-2 {
+  background-color: #607E48;
+}
+
+.nivel-3 {
+  background-color: #99B65A;
+}
+
+.nivel-4 {
+  background-color: #D4B45C;
+}
+
+.nivel-5 {
+  background-color: #D77B42;
+}
+
+/* Leyenda */
+
+.leyenda-calendario-historico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0;
+  font-size: 12px;
+  color: #8ED8A0;
+}
+
+.escala-calendario-historico {
+  display: flex;
+  gap: 4px;
+}
+
+.escala-calendario-historico .nivel-cal {
+  width: 24px;
+  height: 16px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* Pantallas pequeñas */
+
+@media (max-width: 768px) {
+  .calendario-historico {
+    gap: 4px;
+  }
+
+  .cal-hist-celda {
+    height: 28px;
+  }
+}
+
+/* Mes seleccionado en el calendario histórico */
+
+.cal-hist-celda.seleccionada {
+  outline: 2px solid #FFFFFF;
+  outline-offset: 2px;
+  box-shadow: 0 0 12px rgba(212, 242, 122, 0.35);
+}

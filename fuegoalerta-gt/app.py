@@ -277,6 +277,65 @@ def historico_mensual():
         return {"error": f"No se pudieron procesar los datos: {error}"}, 500
 
 
+@app.route("/api/historico/calendario")
+def calendario_historico():
+    calendario = {
+        (anio, mes): {
+            "anio": anio,
+            "mes": mes,
+            "modis": 0,
+            "viirs": 0,
+            "ambos": 0,
+            "total": 0
+        }
+        for anio in range(2000, 2026)
+        for mes in range(1, 13)
+    }
+
+    try:
+        with open(
+            RUTA_HISTORICO,
+            "r",
+            encoding="utf-8-sig",
+            newline=""
+        ) as archivo:
+
+            lector = csv.DictReader(archivo)
+
+            for fila in lector:
+                fecha = fila["fecha_gt"]
+
+                anio = int(fecha[:4])
+                mes = int(fecha[5:7])
+
+                if (anio, mes) not in calendario:
+                    continue
+
+                registro = calendario[(anio, mes)]
+
+                modis = int(fila["MODIS"]) > 0
+                viirs = int(fila["VIIRS"]) > 0
+
+                if modis and viirs:
+                    registro["ambos"] += 1
+                elif modis:
+                    registro["modis"] += 1
+                elif viirs:
+                    registro["viirs"] += 1
+
+                registro["total"] += 1
+
+        return {
+            "unidad": "registros de actividad por celda y día",
+            "calendario": list(calendario.values())
+        }
+
+    except (OSError, ValueError, KeyError) as error:
+        return {
+            "error": f"No se pudo generar el calendario: {error}"
+        }, 500
+
+
 @app.route("/api/status")
 def status():
     return jsonify(almacen.resumen())

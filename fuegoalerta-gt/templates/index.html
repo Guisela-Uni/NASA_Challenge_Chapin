@@ -8,7 +8,7 @@
   <!-- Tipografía: Bricolage Grotesque (títulos y cifras) + Inter (texto) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Inter:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Playfair+Display:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
   <!-- Leaflet: solo se usa en la vista "Satélite" (imágenes NASA GIBS / VIIRS) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -43,21 +43,21 @@
   <main id="vista-mapa" class="bento">
     <section class="tile tile-mapa" aria-labelledby="t-mapa">
       <div class="tile-cab">
-        <h1 id="t-mapa" class="titulo" data-i18n="mapTitle">Mapa de incendios · MODIS + VIIRS</h1>
+        <h1 id="t-mapa" class="titulo" data-i18n="mapTitle">Focos de calor</h1>
         <div class="segmento" role="group" aria-label="Vista del mapa">
-          <button type="button" data-vista="sat" aria-pressed="true" data-i18n="viewSat">Satélites MODIS + VIIRS</button>
+          <button type="button" data-vista="sat" aria-pressed="true" data-i18n="viewSat">Satélite</button>
           <button type="button" data-vista="hex" aria-pressed="false" data-i18n="viewRisk">Riesgo</button>
         </div>
       </div>
       <form id="buscador" class="buscador" role="search" autocomplete="off">
         <label for="q-buscar" class="sr" data-i18n="searchLabel">Buscar departamento o municipio</label>
-        <input id="q-buscar" type="search" maxlength="80" placeholder="Buscar departamento o municipio (ej. Cobán, Zacapa, Chiquimula…)" data-i18n-ph="searchPh">
+        <input id="q-buscar" type="search" maxlength="80" placeholder="Buscar lugar" data-i18n-ph="searchPh">
         <button type="submit" id="btn-buscar" data-i18n="searchBtn">Buscar</button>
       </form>
       <ul id="buscar-lista" class="buscar-lista" hidden></ul>
       <p id="buscar-msg" class="focos-estado" role="status" hidden></p>
-      <p class="sub" id="mapa-fecha"></p>
-      <p id="focos-estado" class="focos-estado" role="status">Consultando los focos de calor de NASA FIRMS…</p>
+      <p class="sub" id="mapa-fecha" hidden></p>
+      <p id="focos-estado" class="focos-estado" role="status">…</p>
 
       <div id="hexmapa" class="hexmapa" hidden>
         <svg id="hex-svg" viewBox="0 0 94.2 100" aria-hidden="true"></svg>
@@ -69,27 +69,27 @@
         <div class="escala">
           <span class="sub" data-i18n="riskScale">Riesgo (0–100)</span>
           <span class="escala-barra" aria-hidden="true"></span>
-          <span class="escala-ticks" aria-hidden="true"><span>0</span><span>25</span><span>50+</span></span>
+          <span class="escala-ticks" aria-hidden="true"><span>0</span><span>15</span><span>30+</span></span>
         </div>
-        <span class="focos-leyenda" aria-hidden="false"><i class="dot dot-viirs"></i> VIIRS (375 m) <i class="dot dot-modis"></i> MODIS (1 km) · color pleno = hoy, tenue = noche anterior</span>
+        <span class="focos-leyenda" aria-hidden="false"><i class="dot dot-viirs"></i> VIIRS <i class="dot dot-modis"></i> MODIS</span>
         <span class="nota" id="nota-mapa"></span>
       </div>
       <div id="buscar-card" class="buscar-card" hidden></div>
     </section>
 
-    <section class="tile tile-lima">
+    <section class="tile tile-lima" id="tile-nac">
       <span class="etq" id="nac-etq"></span>
       <span class="cifra" id="nac-nivel">—</span>
       <span id="nac-sub"></span>
     </section>
 
-    <section class="tile">
+    <section class="tile" id="tile-pico">
       <span class="etq suave" data-i18n="kPeak">Día más crítico</span>
       <span class="cifra" id="pico-fecha">—</span>
       <button type="button" id="btn-pico" class="btn-contorno"></button>
     </section>
 
-    <section class="tile tile-ancho tile-tiempo" aria-labelledby="tl-fecha">
+    <section class="tile tile-tiempo" aria-labelledby="tl-fecha">
       <div class="tiempo-cab">
         <button type="button" id="btn-play" class="btn-play" aria-label="Reproducir línea de tiempo">
           <svg class="ico-play" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5-9-5.5Z"/></svg>
@@ -97,7 +97,6 @@
         </button>
         <div class="tiempo-txt">
           <div class="tiempo-fecha" id="tl-fecha"></div>
-          <div class="sub" data-i18n="timelineHelp">Toque una barra o presione play para recorrer el tiempo</div>
         </div>
         <button type="button" id="btn-hoy" class="btn-contorno btn-claro" data-i18n="today">Hoy</button>
       </div>
@@ -392,8 +391,7 @@
   </main>
 
   <footer class="pie">
-    <p id="pie-fuente"></p>
-    <p data-i18n="footer"></p>
+    <p class="pie-nasa">Powered by NASA data · POWER · FIRMS · GIBS</p>
   </footer>
 </div>
 

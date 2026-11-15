@@ -21,15 +21,15 @@ const T = {
     loading: "Conectando con los datos satelitales de la NASA…", loadingNote: "La primera carga puede tardar un minuto.",
     loadingProg: (a, b) => `Obteniendo datos de NASA POWER… ${a} de ${b} departamentos`, loadErr: "No se pudieron cargar los datos. Recargue la página.",
     tabMap: "Mapa", tabCal: "Calendario", tabMet: "Método", langBtn: "EN", langLabel: "Switch to English",
-    mapTitle: "Mapa de incendios · MODIS + VIIRS", viewRisk: "Riesgo", viewSat: "Satélites MODIS + VIIRS", riskScale: "Riesgo (0–100)",
-    interp: "Superficie interpolada entre 22 puntos de NASA POWER.", satNote: (f) => `Focos de calor MODIS y VIIRS de las últimas 24 h (NASA FIRMS) sobre la imagen VIIRS del ${f} (último mosaico diario completo, NASA GIBS).`,
+    mapTitle: "Focos de calor", viewRisk: "Riesgo", viewSat: "Satélite", riskScale: "Riesgo (0–100)",
+    interp: "Interpolado de 22 puntos", satNote: (f) => `MODIS Terra · ${f}`,
     observed: "Observado", forecast: "Pronóstico", obsPred: "Observado · Pronóstico", today: "Hoy",
-    kNational: "Nivel nacional", ofHigh: (n) => `${n} de 22 departamentos en riesgo alto`, kPeak: "Día más crítico",
+    kNational: "Nivel nacional", ofHigh: (n) => `${n}/22 en riesgo alto`, kPeak: "Día más crítico",
     timelineHelp: "Toque una barra o presione play para recorrer el tiempo", play: "Reproducir línea de tiempo", pause: "Pausar",
     rankTitle: "Más expuestos", actionToday: "Acción de hoy", varsTitle: "Variables", planTitle: "Plan de prevención", close: "Cerrar detalle",
     maintenanceT: "Abrir rondas cortafuego antes de la época seca", maintenanceD: "Las condiciones son estables: es el momento de retirar combustible y capacitar brigadas.",
     searchLabel: "Buscar departamento o municipio", searchBtn: "Buscar",
-    searchPh: "Buscar departamento o municipio (ej. Cobán, Zacapa, Chiquimula…)",
+    searchPh: "Buscar lugar",
     calTitle: "Calendario de riesgo", calScopeNat: "Nacional (máximo por día)", calLegend: "Borde punteado = pronóstico · Borde blanco = hoy · Número = riesgo (0–100)",
     topDates: "Fechas más críticas", seeOnMap: "Ver en el mapa →", dayTop: (d) => `Más vulnerables el ${d}`,
     metTitle: "¿Cuándo está el ambiente en estado estable?",
@@ -38,7 +38,7 @@ const T = {
     metNote: "La temperatura estable y crítica se ajusta por la altitud de cada departamento.", stable: "Estable", critical: "Crítico",
     footer: "Herramienta de apoyo a la decisión. Las alertas oficiales y las prohibiciones de quemas provienen de CONRED, CONAP, INAB, MARN y las municipalidades.",
     source: (f) => `Datos: NASA POWER (clima diario, último dato ${f}; NASA lo publica con 2–3 días de retraso y el modelo estima los días siguientes) · NASA FIRMS (focos MODIS y VIIRS de las últimas 24 h) · NASA GIBS (imágenes).`,
-    staleWarn: (f) => `No se pudo actualizar NASA POWER: se muestran los últimos datos REALES guardados (último dato: ${f}). Reintentando.`,
+    staleWarn: (f) => `Clima sin actualizar · último dato ${f}`,
     simWarn: (n) => `Atención: ${n} de 22 departamentos usan datos SIMULADOS porque no se pudo conectar con NASA POWER. No los use para tomar decisiones.`,
     riskWord: "riesgo", states: { estable: "Estable", vigilancia: "Vigilancia", critico: "Crítico" },
     days: "días", weekdays: ["L", "M", "M", "J", "V", "S", "D"],
@@ -50,15 +50,15 @@ const T = {
     loading: "Connecting to NASA satellite data…", loadingNote: "The first load can take a minute.",
     loadingProg: (a, b) => `Fetching NASA POWER data… ${a} of ${b} departments`, loadErr: "Data could not be loaded. Please reload the page.",
     tabMap: "Map", tabCal: "Calendar", tabMet: "Method", langBtn: "ES", langLabel: "Cambiar a español",
-    mapTitle: "Fire map · MODIS + VIIRS", viewRisk: "Risk", viewSat: "MODIS + VIIRS satellites", riskScale: "Risk (0–100)",
-    interp: "Surface interpolated between 22 NASA POWER points.", satNote: (f) => `MODIS and VIIRS thermal hotspots of the last 24 h (NASA FIRMS) over the VIIRS image of ${f} (latest complete daily mosaic, NASA GIBS).`,
+    mapTitle: "Hotspots", viewRisk: "Risk", viewSat: "Satellite", riskScale: "Risk (0–100)",
+    interp: "Interpolated from 22 points", satNote: (f) => `MODIS Terra · ${f}`,
     observed: "Observed", forecast: "Forecast", obsPred: "Observed · Forecast", today: "Today",
-    kNational: "National level", ofHigh: (n) => `${n} of 22 departments at high risk`, kPeak: "Peak day",
+    kNational: "National level", ofHigh: (n) => `${n}/22 at high risk`, kPeak: "Peak day",
     timelineHelp: "Tap a bar or press play to move through time", play: "Play timeline", pause: "Pause",
     rankTitle: "Most exposed", actionToday: "Today's action", varsTitle: "Variables", planTitle: "Prevention plan", close: "Close details",
     maintenanceT: "Open firebreaks before the dry season", maintenanceD: "Conditions are stable: now is the time to remove fuel and train fire brigades.",
     searchLabel: "Search department or municipality", searchBtn: "Search",
-    searchPh: "Search department or municipality (e.g. Cobán, Zacapa, Chiquimula…)",
+    searchPh: "Search place",
     calTitle: "Risk calendar", calScopeNat: "National (daily maximum)", calLegend: "Dashed border = forecast · White border = today · Number = risk (0–100)",
     topDates: "Most critical dates", seeOnMap: "Show on map →", dayTop: (d) => `Most vulnerable on ${d}`,
     metTitle: "When is the environment stable?",
@@ -67,7 +67,7 @@ const T = {
     metNote: "Stable and critical temperatures are adjusted by each department's elevation.", stable: "Stable", critical: "Critical",
     footer: "Decision-support tool. Official alerts and burning bans come from CONRED, CONAP, INAB, MARN and municipalities.",
     source: (f) => `Data: NASA POWER (daily climate, latest ${f}; NASA publishes it with a 2–3 day lag and the model estimates the following days) · NASA FIRMS (MODIS and VIIRS hotspots of the last 24 h) · NASA GIBS (imagery).`,
-    staleWarn: (f) => `NASA POWER could not be refreshed: showing the last saved REAL data (latest: ${f}). Retrying.`,
+    staleWarn: (f) => `Climate not updated · latest ${f}`,
     simWarn: (n) => `Warning: ${n} of 22 departments use SIMULATED data because NASA POWER could not be reached. Do not use them for decisions.`,
     riskWord: "risk", states: { estable: "Stable", vigilancia: "Watch", critico: "Critical" },
     days: "days", weekdays: ["M", "T", "W", "T", "F", "S", "S"],
@@ -141,7 +141,7 @@ function nivel(r100) {
 
 /* Escala de riesgo: verde (0) → amarillo (25) → rojo (50 o más). Coincide con los niveles del modelo:
    Bajo < 20, Moderado < 35, Alto < 50, Muy alto y Extremo en rojo. */
-const RAMPA = [[0, [46, 158, 79]], [25, [250, 204, 21]], [50, [220, 38, 38]]];
+const RAMPA = [[0, [36, 78, 49]], [15, [155, 227, 174]], [30, [212, 242, 122]]];   // bosque → menta → lima
 function colorRGB(v) {
   for (let i = 1; i < RAMPA.length; i++) {
     if (v <= RAMPA[i][0]) {
@@ -152,10 +152,22 @@ function colorRGB(v) {
   return RAMPA[RAMPA.length - 1][1];
 }
 function color(v) { return `rgb(${colorRGB(v).join(",")})`; }
+/* Escala de calor para la línea de tiempo: ámbar (bajo) → naranja → rojo (alto).
+   Mismos umbrales que los niveles del modelo: 35 = alto, 50+ = muy alto. */
+const CALOR = [[0, [251, 191, 36]], [20, [249, 115, 22]], [35, [234, 88, 12]], [50, [220, 38, 38]]];
+function colorCalor(v) {
+  for (let i = 1; i < CALOR.length; i++) {
+    if (v <= CALOR[i][0]) {
+      const [a, ca] = CALOR[i - 1], [b, cb] = CALOR[i], k = Math.max(0, (v - a) / (b - a));
+      return `rgb(${ca.map((c, n) => Math.round(c + (cb[n] - c) * k)).join(",")})`;
+    }
+  }
+  return "rgb(220,38,38)";
+}
 /* texto oscuro o blanco, según el brillo del fondo */
 function textoSobre(v) {
   const [r, g, b] = colorRGB(v);
-  return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#10210f" : "#ffffff";
+  return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#11240F" : "#EAF5EC";
 }
 
 /* ---------------------------------------------------------------
@@ -292,20 +304,22 @@ function pintarSatelite() {
     const f = ESTADO.fecha_imagenes;
     const attr = 'Imágenes: <a href="https://earthdata.nasa.gov/gibs">NASA GIBS</a> · Focos: <a href="https://firms.modaps.eosdis.nasa.gov/">NASA FIRMS</a>';
     mapaSat = L.map("satmapa", { zoomSnap: 0.25, minZoom: 6, attributionControl: true });
+    // Redibuja el mapa cuando su bloque cambia de tamaño (evita franjas negras)
+    if (window.ResizeObserver) new ResizeObserver(() => mapaSat.invalidateSize()).observe($("#satmapa"));
     mapaSat.createPane("deps"); mapaSat.getPane("deps").style.zIndex = 450;
     mapaSat.createPane("focos"); mapaSat.getPane("focos").style.zIndex = 460;
-    const viirs = L.tileLayer(gibs("VIIRS_SNPP_CorrectedReflectance_TrueColor", f, 9, "jpg"), { maxNativeZoom: 9, maxZoom: 12, attribution: attr + " · VIIRS " + f });
+    // Capas base de NASA GIBS (+ calles). Inicia con MODIS Terra color real.
     const terra = L.tileLayer(gibs("MODIS_Terra_CorrectedReflectance_TrueColor", f, 9, "jpg"), { maxNativeZoom: 9, maxZoom: 12, attribution: attr + " · MODIS Terra " + f });
+    const viirs = L.tileLayer(gibs("VIIRS_SNPP_CorrectedReflectance_TrueColor", f, 9, "jpg"), { maxNativeZoom: 9, maxZoom: 12, attribution: attr + " · VIIRS " + f });
     const relieve = L.tileLayer(gibs("BlueMarble_ShadedRelief_Bathymetry", null, 8, "jpeg"), { maxNativeZoom: 8, maxZoom: 12, attribution: attr });
     const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" });
-    viirs.addTo(mapaSat);
+    terra.addTo(mapaSat);
     capaFocosViirs = L.layerGroup().addTo(mapaSat);
     capaFocosModis = L.layerGroup().addTo(mapaSat);
     capaSat = L.layerGroup();                       // riesgo por departamento (opcional)
-    const limite = L.polygon(CONTORNO.contorno, { color: "#ffffff", weight: 2, fill: false, interactive: false }).addTo(mapaSat);
     L.control.layers(
-      { "Satélite VIIRS (color real)": viirs, "Satélite MODIS Terra (color real)": terra, "Relieve (NASA Blue Marble)": relieve, "Calles (OpenStreetMap)": osm },
-      { "Focos VIIRS · últimas 24 h": capaFocosViirs, "Focos MODIS · últimas 24 h": capaFocosModis, "Riesgo por departamento": capaSat, "Límite de Guatemala": limite },
+      { "Satélite MODIS Terra (color real)": terra, "Satélite VIIRS (color real)": viirs, "Relieve (NASA Blue Marble)": relieve, "Calles (OpenStreetMap)": osm },
+      { "Focos VIIRS · últimas 24 h": capaFocosViirs, "Focos MODIS · últimas 24 h": capaFocosModis, "Riesgo por departamento": capaSat },
       { collapsed: true }
     ).addTo(mapaSat);
     mapaSat.fitBounds([[13.6, -92.4], [17.9, -88.1]]);
@@ -315,7 +329,7 @@ function pintarSatelite() {
   capaSat.clearLayers();
   for (const d of ESTADO.departamentos) {
     const r = riesgo(d.id, S.di);
-    L.circleMarker([d.lat, d.lon], { pane: "deps", radius: 7 + r * 0.12, color: "#ffffff", weight: 2, fillColor: color(r + 2), fillOpacity: 1 })
+    L.circleMarker([d.lat, d.lon], { pane: "deps", radius: 7 + r * 0.12, color: "#0D1F14", weight: 2, fillColor: color(r + 2), fillOpacity: 1 })
       .bindTooltip(`${esc(d.nombre)} · ${t().riskWord} ${r}`).on("click", () => seleccionar(d.id)).addTo(capaSat);
   }
 }
@@ -340,21 +354,18 @@ function pintarFocos() {
   if (!el) return;
   if (focosError && !FOCOS) {
     el.className = "focos-estado mal";
-    el.textContent = "No se pudieron cargar los focos de calor de hoy desde NASA FIRMS. No se muestran datos inventados; se reintenta cada 10 minutos.";
+    el.textContent = S.lang === "es" ? "Focos no disponibles" : "Hotspots unavailable";
   } else if (FOCOS) {
     const fallan = Object.entries(FOCOS.sensores).filter(([, v]) => !v.ok).map(([k]) => k);
     el.className = "focos-estado" + (FOCOS.desactualizado || fallan.length ? " aviso-leve" : "");
-    el.textContent = `NASA FIRMS · últimas 24 h: ${FOCOS.total} focos (VIIRS ${FOCOS.viirs} · MODIS ${FOCOS.modis}), ${FOCOS.hoy} de hoy · ` +
-      `última detección ${hhmm(FOCOS.ultima_deteccion_local)} · consultado ${hhmm(FOCOS.actualizado_local)} (hora de Guatemala)` +
-      (FOCOS.desactualizado ? " · ATENCIÓN: no se pudo actualizar, son los últimos datos reales obtenidos" : "") +
-      (fallan.length ? ` · sin respuesta: ${fallan.join(", ")}` : "");
+    el.textContent = `${FOCOS.total} ${S.lang === "es" ? "focos" : "hotspots"} · 24 h` + (FOCOS.desactualizado ? (S.lang === "es" ? " · sin actualizar" : " · not updated") : "");
   }
   if (!mapaSat || !FOCOS) return;
   capaFocosViirs.clearLayers(); capaFocosModis.clearLayers();
   const render = L.canvas({ pane: "focos", padding: 0.5 });
   for (const f of FOCOS.focos) {
-    const viirs = f.sensor === "VIIRS", col = viirs ? "#ff6a00" : "#c026d3";
-    L.circleMarker([f.lat, f.lon], { renderer: render, radius: viirs ? 4.5 : 6, color: "#ffffff", weight: 1, fillColor: col, fillOpacity: f.hoy ? 0.95 : 0.55 })
+    const viirs = f.sensor === "VIIRS", col = viirs ? "#FF6A00" : "#C026D3";   // alerta: VIIRS naranja, MODIS magenta
+    L.circleMarker([f.lat, f.lon], { renderer: render, radius: viirs ? 4.5 : 6, color: "#FFFFFF", weight: 1, fillColor: col, fillOpacity: f.hoy ? 0.95 : 0.55 })
       .bindTooltip(`<b>${f.sensor} · ${esc(f.sat)}</b><br>${f.local.slice(0, 10)} ${hhmm(f.local)} (hora GT)${f.frp != null ? `<br>FRP ${f.frp} MW` : ""}${f.conf ? `<br>confianza ${esc(f.conf)}` : ""}`)
       .addTo(viirs ? capaFocosViirs : capaFocosModis);
   }
@@ -366,7 +377,7 @@ function pintarFocos() {
 function pintarNacional() {
   const media = Math.round(DIARIO.nacional_media[S.di] * 100);
   const altos = ESTADO.departamentos.filter((d) => riesgo(d.id, S.di) >= 35).length;
-  $("#nac-etq").textContent = `${t().kNational} · ${fCorta(S.di)}`;
+  $("#nac-etq").textContent = t().kNational;
   $("#nac-nivel").textContent = nombreNivel(nivel(media));
   $("#nac-sub").textContent = t().ofHigh(altos);
   // Día más crítico de los próximos 45 días
@@ -391,14 +402,14 @@ function pintarLineaTiempo() {
     const v = Math.round(DIARIO.nacional_maximo[i] * 100), sel = i === S.di;
     const s = b.firstChild;
     s.style.height = Math.max(6, Math.min(100, 8 + v * 2.6)) + "%";
-    s.style.background = color(v + 4);
-    s.style.opacity = sel ? 1 : DIARIO.tipos[i] === "pred" ? 0.45 : 0.8;
+    s.style.background = colorCalor(v);
+    s.style.opacity = sel ? 1 : DIARIO.tipos[i] === "pred" ? 0.7 : 0.95;
     s.style.outline = sel ? "2px solid #EAF5EC" : "none";
     b.setAttribute("aria-label", `${fCorta(i)}: ${t().riskWord} ${v}`);
     b.setAttribute("aria-pressed", sel ? "true" : "false");
   });
   const tipo = DIARIO.tipos[S.di] === "pred" ? t().forecast : t().observed;
-  $("#tl-fecha").textContent = `${fLarga(S.di)} · ${tipo}`;
+  $("#tl-fecha").textContent = `${fCorta(S.di)} · ${tipo}`;
   $("#mapa-fecha").textContent = `${tipo} · ${fCorta(S.di)}`;
   $("#tl-ini").textContent = fCorta(0);
   $("#tl-fin").textContent = fCorta(DIARIO.fechas.length - 1);
@@ -408,9 +419,9 @@ function pintarPanel() {
   const a = $("#tile-a"), b = $("#tile-b");
   if (!S.sel) {
     a.classList.remove("desplazable"); b.classList.remove("desplazable");
-    const orden = ESTADO.departamentos.map((d) => [riesgo(d.id, S.di), d]).sort((x, y) => y[0] - x[0]).slice(0, 5);
-    a.innerHTML = `<span class="etq suave">${t().rankTitle} · ${fCorta(S.di)}</span>
-      <ol class="lista">${orden.map(([r, d]) => `<li><button type="button" class="fila" data-dep="${d.id}"><span>${esc(d.nombre)}</span><b>${r}</b></button></li>`).join("")}</ol>`;
+    const orden = ESTADO.departamentos.map((d) => [riesgo(d.id, S.di), d]).sort((x, y) => y[0] - x[0]).slice(0, 3);
+    a.innerHTML = `<span class="etq-rank">${t().rankTitle}</span>
+      <ol class="lista ranking">${orden.map(([r, d], i) => `<li><button type="button" class="fila fila-rank" data-dep="${d.id}"><span>${esc(d.nombre)}</span><b class="rk rk-${Math.min(i, 2)}">${r}</b></button></li>`).join("")}</ol>`;
     const acc = traducirPlan(accionHoy) || { t: t().maintenanceT, d: t().maintenanceD };
     b.innerHTML = `<span class="etq">${t().actionToday}</span><span class="accion-titulo">${esc(acc.t)}</span><span>${esc(acc.d)}</span>`;
     return;
@@ -432,7 +443,7 @@ function filaVariable(v) {
   else if (v.clave === "precip15") val = `${Math.round(v.actual)} mm`;
   else val = `${v.actual.toFixed(1)} ${v.unidad}`;
   // estable = verde · vigilancia = amarillo · crítico = rojo
-  const punto = v.estado === "estable" ? "background:#2e9e4f" : v.estado === "vigilancia" ? "background:#facc15" : "background:#dc2626";
+  const punto = v.estado === "estable" ? "background:#2E9E4F" : v.estado === "vigilancia" ? "background:#FACC15" : "background:#DC2626";
   const nombre = S.lang === "es" ? VAR_ES[v.clave] || v.nombre : (VAR_EN[v.clave] || [v.nombre])[0];
   return `<li class="fila-var"><span>${esc(nombre)}</span><span class="val"><span>${esc(val)}</span><span class="punto" style="${punto}" aria-hidden="true"></span><span class="estado">${t().states[v.estado] || v.estado}</span></span></li>`;
 }
@@ -777,19 +788,19 @@ if (resumenMensual) {
           {
             label: "Solo MODIS",
             data: datos.meses.map(m => m.modis),
-            backgroundColor: "#FF9F43",
+            backgroundColor: "#9BE3AE",
             stack: "actividad"
           },
           {
             label: "Solo VIIRS",
             data: datos.meses.map(m => m.viirs),
-            backgroundColor: "#63C7E8",
+            backgroundColor: "#D4F27A",
             stack: "actividad"
           },
           {
             label: "MODIS y VIIRS",
             data: datos.meses.map(m => m.ambos),
-            backgroundColor: "#D4F27A",
+            backgroundColor: "#EAF5EC",
             stack: "actividad"
           }
         ]
@@ -805,7 +816,7 @@ if (resumenMensual) {
 
         plugins: {
           legend: {
-            labels: { color: "#FFFFFF" }
+            labels: { color: "#EAF5EC" }
           },
           tooltip: {
             callbacks: {
@@ -834,13 +845,13 @@ if (resumenMensual) {
         scales: {
           x: {
             stacked: true,
-            ticks: { color: "#8ED8A0" },
+            ticks: { color: "#9BE3AE" },
             grid: { display: false }
           },
           y: {
             stacked: true,
             beginAtZero: true,
-            ticks: { color: "#8ED8A0" },
+            ticks: { color: "#9BE3AE" },
             grid: { color: "rgba(255,255,255,0.1)" }
           }
         }
@@ -890,19 +901,19 @@ datasets: [
   {
     label: "Solo MODIS",
     data: soloModis,
-    backgroundColor: "#FF9F43",
+    backgroundColor: "#9BE3AE",
     stack: "actividad"
   },
   {
     label: "Solo VIIRS",
     data: soloViirs,
-    backgroundColor: "#63C7E8",
+    backgroundColor: "#D4F27A",
     stack: "actividad"
   },
   {
     label: "MODIS y VIIRS",
     data: ambos,
-    backgroundColor: "#D4F27A",
+    backgroundColor: "#EAF5EC",
     stack: "actividad"
   }
 ]
@@ -917,7 +928,7 @@ datasets: [
       },
         plugins: {
           legend: {
-            labels: { color: "#FFFFFF" }
+            labels: { color: "#EAF5EC" }
           },
 
 tooltip: {
@@ -946,13 +957,13 @@ tooltip: {
         scales: {
           x: {
             stacked: true,
-            ticks: { color: "#8ED8A0" },
+            ticks: { color: "#9BE3AE" },
             grid: { display: false }
           },
           y: {
             stacked: true,
             beginAtZero: true,
-            ticks: { color: "#8ED8A0" },
+            ticks: { color: "#9BE3AE" },
             grid: { color: "rgba(255,255,255,0.1)" }
           }
         }
@@ -1005,11 +1016,11 @@ function pintarMapaHistorico(detecciones) {
     let colorPunto;
 
     if (d.ambos_sensores) {
-      colorPunto = "#D4F27A";
+      colorPunto = "#DC2626";
     } else if (d.modis > 0) {
-      colorPunto = "#FF9F43";
+      colorPunto = "#C026D3";
     } else {
-      colorPunto = "#63C7E8";
+      colorPunto = "#FF6A00";
     }
 
     L.circleMarker([d.lat, d.lon], {
@@ -1178,7 +1189,6 @@ function pintarTodo() {
   // Pie con la fuente de los datos y aviso si hay datos simulados
   $("#nota-mapa").textContent = S.vista === "hex" ? t().interp : t().satNote(fIso(ESTADO.fecha_imagenes));
   const rezago = Math.round((fecha(ESTADO.hoy) - fecha(ESTADO.ultimo_dato)) / 86400000);
-  $("#pie-fuente").textContent = t().source(fIso(ESTADO.ultimo_dato)) + (rezago > 0 ? (S.lang === "es" ? ` Hoy el último dato real de clima tiene ${rezago} día(s) de retraso.` : ` Today the latest real climate data is ${rezago} day(s) old.`) : "");
   const sim = (ESTADO.fuentes && ESTADO.fuentes.SIMULADO) || 0;
   const viejo = !sim && ESTADO.errores && ESTADO.errores.length;
   $("#aviso").hidden = !(sim || viejo);
@@ -1315,7 +1325,7 @@ function marcarLugar(lat, lon, nombre) {
   pintarSatelite();
   if (!capaBusqueda) capaBusqueda = L.layerGroup().addTo(mapaSat);
   capaBusqueda.clearLayers();
-  L.circleMarker([lat, lon], { pane: "focos", radius: 11, color: "#ffffff", weight: 3, fillColor: "#2563eb", fillOpacity: 0.9 })
+  L.circleMarker([lat, lon], { pane: "focos", radius: 11, color: "#0D1F14", weight: 3, fillColor: "#EAF5EC", fillOpacity: 1 })
     .bindTooltip(esc(nombre), { permanent: true, direction: "top", offset: [0, -8] }).addTo(capaBusqueda);
   mapaSat.flyTo([lat, lon], 10, { duration: 1 });
 }

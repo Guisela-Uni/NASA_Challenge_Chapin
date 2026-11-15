@@ -19,6 +19,7 @@ from nasa_data import almacen
 
 app = Flask(__name__)
 app.json.ensure_ascii = False      # tildes legibles en el JSON
+app.jinja_env.auto_reload = True   # relee templates/index.html si cambia, sin reiniciar el servidor
 
 almacen.iniciar()
 historico.precargar_en_segundo_plano()   # lee el CSV histórico una sola vez, en segundo plano

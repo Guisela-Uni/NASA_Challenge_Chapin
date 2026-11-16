@@ -1,0 +1,123 @@
+/* FuegoAlerta GT · portada (hero). Misma paleta "Bento bosque": bosque · menta · lima. */
+:root {
+  --bosque: #0D1F14;
+  --bosque-2: #17331F;
+  --bosque-tinta: #11240F;
+  --menta: #9BE3AE;
+  --lima: #D4F27A;
+  --texto: #EAF5EC;
+  --suave: rgba(155, 227, 174, 0.78);
+  --linea: rgba(155, 227, 174, 0.16);
+  --linea-fuerte: rgba(155, 227, 174, 0.32);
+  --titulo: "Bricolage Grotesque", system-ui, sans-serif;
+  --serif: "Playfair Display", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+html, body { margin: 0; background: var(--bosque); color: var(--texto); }
+body { font: 15px/1.5 Inter, system-ui, sans-serif; }
+a { color: inherit; text-decoration: none; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--lima); outline-offset: 3px; }
+.lima { color: var(--lima); }
+
+/* ---------- hero: cabe en una ventana ---------- */
+.hero-pagina {
+  min-height: 100vh; display: flex; flex-direction: column;
+  max-width: 1440px; margin: 0 auto; padding: 24px 40px 40px;
+  background: radial-gradient(60% 60% at 80% 40%, rgba(212, 242, 122, 0.07), transparent 70%);
+}
+.nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.logo { font-family: var(--titulo); font-weight: 800; font-size: 24px; letter-spacing: -0.6px; }
+.nav-links { display: flex; gap: 28px; color: var(--suave); font-weight: 500; }
+.nav-links a:hover { color: var(--texto); }
+.nav-der { display: flex; align-items: center; gap: 10px; }
+.btn-idioma { min-width: 44px; min-height: 40px; border: 0; border-radius: 999px; background: var(--bosque-2); color: var(--texto); font: 600 13px Inter, sans-serif; cursor: pointer; }
+
+.btn { display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 26px; border-radius: 999px; font-family: var(--titulo); font-weight: 700; font-size: 16px; transition: transform .15s ease, background .15s ease; }
+.btn:hover { transform: translateY(-1px); }
+.btn-lima { background: var(--lima); color: var(--bosque-tinta); }
+.btn-lima:hover { background: #E2F89A; }
+.btn-contorno { border: 1px solid var(--linea-fuerte); color: var(--texto); }
+.btn-contorno:hover { border-color: var(--menta); }
+.btn-chico { min-height: 40px; padding: 0 18px; font-size: 14px; }
+
+.hero { flex: 1; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; gap: 56px; padding-top: 32px; }
+
+.vivo { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 22px; padding: 8px 16px; border: 1px solid var(--linea-fuerte); border-radius: 999px; color: var(--menta); font-size: 13px; font-weight: 500; }
+.pulso { width: 8px; height: 8px; border-radius: 50%; background: #FF6A00; box-shadow: 0 0 0 0 rgba(255, 106, 0, .6); animation: pulso 1.8s infinite; flex: none; }
+@keyframes pulso { 70% { box-shadow: 0 0 0 9px rgba(255, 106, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 106, 0, 0); } }
+
+h1 { margin: 0; font-family: var(--titulo); font-weight: 800; font-size: clamp(48px, 6.2vw, 92px); line-height: .98; letter-spacing: -3px; }
+h1 span, h1 em { display: block; }
+h1 em, .cierre em { font-family: var(--serif); font-style: italic; font-weight: 700; letter-spacing: -1.5px; color: var(--lima); }
+.sub { max-width: 30em; margin: 26px 0 32px; color: var(--suave); font-size: clamp(16px, 1.35vw, 19px); }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+
+.cifras { display: flex; gap: 0; margin: 44px 0 0; padding: 0; }
+.cifras div { padding: 0 28px; border-left: 1px solid var(--linea); }
+.cifras div:first-child { padding-left: 0; border-left: 0; }
+.cifras dt { color: var(--suave); font-size: 12px; margin-bottom: 4px; }
+.cifras dd { margin: 0; font-family: var(--titulo); font-weight: 800; font-size: 30px; letter-spacing: -1px; color: var(--texto); }
+.cifras dd.lima { color: var(--lima); }
+
+/* ---------- imagen satelital con focos ---------- */
+.hero-mapa { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.lienzo { position: relative; aspect-ratio: 43 / 44; max-height: calc(100vh - 190px); width: 100%; margin-left: auto; border-radius: 28px; overflow: hidden; background: linear-gradient(160deg, #1E4029, #0F2417); border: 1px solid var(--linea); }
+.lienzo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; opacity: 0; transition: opacity .8s ease; filter: saturate(1.05) contrast(1.05); }
+.lienzo img.ok { opacity: 1; }
+.velo { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(13, 31, 20, .15), rgba(13, 31, 20, .45)); }
+.puntos { position: absolute; inset: 0; }
+.foco { position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; border: 1.5px solid #fff; background: #FF6A00; animation: aparecer .5s ease both; }
+.foco.modis { background: #C026D3; }
+.foco::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1px solid currentColor; color: rgba(255, 106, 0, .7); animation: onda 2.4s ease-out infinite; }
+.foco.modis::after { color: rgba(192, 38, 211, .7); }
+@keyframes aparecer { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes onda { from { transform: scale(.6); opacity: 1; } to { transform: scale(2.2); opacity: 0; } }
+.escaner { position: absolute; left: 0; right: 0; height: 30%; top: -30%; background: linear-gradient(180deg, transparent, rgba(212, 242, 122, .10), transparent); animation: escanear 6s linear infinite; }
+@keyframes escanear { to { top: 100%; } }
+figcaption { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--suave); font-size: 12px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: var(--bosque-2); }
+.leyenda { display: inline-flex; align-items: center; gap: 6px; }
+.p { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1px solid #fff; margin-left: 6px; }
+.p-viirs { background: #FF6A00; } .p-modis { background: #C026D3; }
+
+/* ---------- bloques ---------- */
+.bloques { max-width: 1440px; margin: 0 auto; padding: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.bloque { padding: 32px; border-radius: 28px; background: var(--bosque-2); display: flex; flex-direction: column; gap: 10px; min-height: 230px; }
+.bloque .num { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 22px; color: var(--lima); }
+.bloque h2 { margin: auto 0 0; font-family: var(--titulo); font-weight: 800; font-size: 28px; letter-spacing: -1px; }
+.bloque p { margin: 0; color: var(--suave); }
+.bloque-lima { background: var(--lima); color: var(--bosque-tinta); }
+.bloque-lima .num, .bloque-lima p { color: var(--bosque-tinta); }
+
+.cierre { max-width: 1440px; margin: 0 auto; padding: 80px 40px 40px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 28px; }
+.cierre h2 { margin: 0; font-family: var(--titulo); font-weight: 800; font-size: clamp(40px, 5vw, 72px); letter-spacing: -2.5px; line-height: 1; }
+.pie { margin: 40px 0 0; color: var(--suave); font-size: 12px; letter-spacing: .3px; }
+
+/* ---------- pantallas chicas ---------- */
+@media (max-width: 960px) {
+  .hero-pagina { padding: 20px; min-height: auto; }
+  .nav-links { display: none; }
+  .hero { grid-template-columns: 1fr; gap: 36px; padding-top: 28px; }
+  .lienzo { max-height: none; }
+  .bloques { grid-template-columns: 1fr; padding: 20px; }
+  .cifras div { padding: 0 16px; }
+  .cifras dd { font-size: 24px; }
+  h1 { letter-spacing: -2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Puntos de calor simulados del hero: núcleo claro → naranja → rojo, con halo que respira */
+.calor { position: absolute; width: var(--t); height: var(--t); margin: calc(var(--t) / -2) 0 0 calc(var(--t) / -2); border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 120, 30, .75) 0%, rgba(235, 60, 20, .5) 35%, rgba(200, 25, 15, .18) 58%, rgba(200, 25, 15, 0) 72%);
+  animation: aparecer .8s ease both, latido 3s ease-in-out infinite; }
+.calor::after { content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%;
+  background: #FFD27A; box-shadow: 0 0 8px 3px rgba(255, 140, 40, .9); }
+@keyframes latido { 50% { transform: scale(1.2); opacity: .75; } }
+
+/* Zona de Guatemala resaltada: fuera oscurecido + silueta blanca fina */
+.contorno { position: absolute; inset: 0; width: 100%; height: 100%; }
+.contorno .fuera { fill: rgba(8, 20, 12, .62); }
+.contorno .borde { fill: none; stroke: rgba(255, 255, 255, .9); stroke-width: 1.2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }

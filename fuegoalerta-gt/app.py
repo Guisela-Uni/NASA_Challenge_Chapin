@@ -41,7 +41,14 @@ def _serie(dep_id):
 
 
 @app.route("/")
+def portada():
+    """Página de inicio (hero) con el botón "Prueba la demo"."""
+    return render_template("landing.html")
+
+
+@app.route("/demo")
 def index():
+    """El dashboard de monitoreo."""
     return render_template("index.html")
 
 

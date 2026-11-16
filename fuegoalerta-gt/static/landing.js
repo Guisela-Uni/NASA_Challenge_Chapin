@@ -38,7 +38,6 @@
   function aplicarIdioma() {
     const t = TXT[lang];
     document.documentElement.lang = lang;
-    document.title = t.title;
     document.querySelectorAll("[data-t]").forEach((el) => { if (t[el.dataset.t]) el.textContent = t[el.dataset.t]; });
     $("#idioma").textContent = t.btn;
     $("#idioma").setAttribute("aria-label", t.btnLabel);

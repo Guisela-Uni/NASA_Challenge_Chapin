@@ -22,7 +22,7 @@ const T = {
     loadingProg: (a, b) => `Obteniendo datos de NASA POWER… ${a} de ${b} departamentos`, loadErr: "No se pudieron cargar los datos. Recargue la página.",
     tabMap: "Mapa", tabCal: "Calendario", tabMet: "Método", langBtn: "EN", langLabel: "Switch to English",
     mapTitle: "Focos de calor", viewRisk: "Riesgo", viewSat: "Satélite", riskScale: "Riesgo (0–100)",
-    interp: "Interpolado de 22 puntos", satNote: (f) => `MODIS Terra · ${f}`,
+    interp: "Interpolado de 22 puntos", satNote: (f) => `VIIRS · ${f}`,
     observed: "Observado", forecast: "Pronóstico", obsPred: "Observado · Pronóstico", today: "Hoy",
     kNational: "Nivel nacional", ofHigh: (n) => `${n}/22 en riesgo alto`, kPeak: "Día más crítico",
     timelineHelp: "Toque una barra o presione play para recorrer el tiempo", play: "Reproducir línea de tiempo", pause: "Pausar",
@@ -51,7 +51,7 @@ const T = {
     loadingProg: (a, b) => `Fetching NASA POWER data… ${a} of ${b} departments`, loadErr: "Data could not be loaded. Please reload the page.",
     tabMap: "Map", tabCal: "Calendar", tabMet: "Method", langBtn: "ES", langLabel: "Cambiar a español",
     mapTitle: "Hotspots", viewRisk: "Risk", viewSat: "Satellite", riskScale: "Risk (0–100)",
-    interp: "Interpolated from 22 points", satNote: (f) => `MODIS Terra · ${f}`,
+    interp: "Interpolated from 22 points", satNote: (f) => `VIIRS · ${f}`,
     observed: "Observed", forecast: "Forecast", obsPred: "Observed · Forecast", today: "Today",
     kNational: "National level", ofHigh: (n) => `${n}/22 at high risk`, kPeak: "Peak day",
     timelineHelp: "Tap a bar or press play to move through time", play: "Play timeline", pause: "Pause",
@@ -313,12 +313,12 @@ function pintarSatelite() {
     const viirs = L.tileLayer(gibs("VIIRS_SNPP_CorrectedReflectance_TrueColor", f, 9, "jpg"), { maxNativeZoom: 9, maxZoom: 12, attribution: attr + " · VIIRS " + f });
     const relieve = L.tileLayer(gibs("BlueMarble_ShadedRelief_Bathymetry", null, 8, "jpeg"), { maxNativeZoom: 8, maxZoom: 12, attribution: attr });
     const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" });
-    terra.addTo(mapaSat);
+    viirs.addTo(mapaSat);   // VIIRS por defecto: cubre todo el país sin franjas negras (MODIS deja huecos entre pasadas)
     capaFocosViirs = L.layerGroup().addTo(mapaSat);
     capaFocosModis = L.layerGroup().addTo(mapaSat);
     capaSat = L.layerGroup();                       // riesgo por departamento (opcional)
     L.control.layers(
-      { "Satélite MODIS Terra (color real)": terra, "Satélite VIIRS (color real)": viirs, "Relieve (NASA Blue Marble)": relieve, "Calles (OpenStreetMap)": osm },
+      { "Satélite VIIRS (color real)": viirs, "Satélite MODIS Terra (color real)": terra, "Relieve (NASA Blue Marble)": relieve, "Calles (OpenStreetMap)": osm },
       { "Focos VIIRS · últimas 24 h": capaFocosViirs, "Focos MODIS · últimas 24 h": capaFocosModis, "Riesgo por departamento": capaSat },
       { collapsed: true }
     ).addTo(mapaSat);

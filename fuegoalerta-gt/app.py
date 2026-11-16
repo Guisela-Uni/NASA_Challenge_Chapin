@@ -194,7 +194,9 @@ def estado():
     return jsonify({
         "hoy": hoy, "fuentes": fuentes, "errores": almacen.resumen()["errores"],
         "ultimo_dato": max(d["fecha_dato"] for d in deps),
-        "fecha_imagenes": (dt.date.today() - dt.timedelta(days=1)).isoformat(),
+        # Ayer según la hora de Guatemala (UTC-6, sin horario de verano). El servidor de Render
+        # está en UTC: con su fecha pediría imágenes de "hoy", que la NASA aún no publica completas.
+        "fecha_imagenes": ((dt.datetime.utcnow() - dt.timedelta(hours=6)).date() - dt.timedelta(days=1)).isoformat(),
         "nacional": {"riesgo_medio": round(media, 3), "nivel": nom, "color": color,
                      "en_alto_o_mas": sum(1 for d in deps if d["riesgo"] >= 0.35),
                      "equilibrio_medio": round(sum(d["equilibrio"] for d in deps) / len(deps))},

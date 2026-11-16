@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FuegoAlerta GT · Vigila el clima, cuida tu tierra</title>
+  <title>GT</title>
   <meta name="description" content="Monitoreo diario del riesgo de incendios forestales en Guatemala con datos satelitales de la NASA.">
-  <link rel="icon" href="data:,">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
@@ -67,6 +67,32 @@
     <h2 data-t="f3t">Riesgo y pronóstico</h2>
     <p data-t="f3d">Nivel de riesgo diario, días críticos y una acción concreta para prevenir.</p>
   </article>
+</section>
+
+<section class="publico" id="publico">
+  <h2 class="publico-titulo"><span data-t="pubA">Para quienes</span> <em data-t="pubB">cuidan la tierra.</em></h2>
+  <div class="publico-grid">
+    <article class="persona">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V11M12 11c0-4 3-7 7-7 0 4-3 7-7 7zM12 14c0-3-2.5-5.5-6-5.5 0 3 2.5 5.5 6 5.5z"/></svg>
+      <h3 data-t="p1t">Agricultores</h3>
+      <p data-t="p1d">Planifica quemas y labores en los días de menor riesgo.</p>
+    </article>
+    <article class="persona">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21h16M6 21V10l6-5 6 5v11M10 21v-5h4v5"/></svg>
+      <h3 data-t="p2t">Municipalidades</h3>
+      <p data-t="p2d">Prioriza alertas y patrullajes por departamento.</p>
+    </article>
+    <article class="persona">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l5 8h-3l4 6H6l4-6H7zM12 17v4"/></svg>
+      <h3 data-t="p3t">Áreas protegidas</h3>
+      <p data-t="p3d">Vigila focos en Petén y reservas antes de que crezcan.</p>
+    </article>
+    <article class="persona">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1.5 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.2-4 2.5-5.2.2 2 .9 3 2 3.4-.6-3 .1-5.6.5-8.2z"/></svg>
+      <h3 data-t="p4t">Bomberos y brigadas</h3>
+      <p data-t="p4d">Anticipa los días críticos y ubica recursos a tiempo.</p>
+    </article>
+  </div>
 </section>
 
 <section class="cierre" id="datos">

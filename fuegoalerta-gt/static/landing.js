@@ -17,7 +17,12 @@
       f1t: "Clima diario", f1d: "Temperatura, humedad, lluvia y viento de NASA POWER para cada departamento.",
       f2t: "Focos de calor", f2d: "Detecciones MODIS y VIIRS de NASA FIRMS en las últimas 24 horas.",
       f3t: "Riesgo y pronóstico", f3d: "Nivel de riesgo diario, días críticos y una acción concreta para prevenir.",
-      endA: "Del satélite", endB: "a tu parcela.", btn: "EN", btnLabel: "Switch to English",
+      endA: "Del satélite", endB: "a tu parcela.",
+      pubA: "Para quienes", pubB: "cuidan la tierra.",
+      p1t: "Agricultores", p1d: "Planifica quemas y labores en los días de menor riesgo.",
+      p2t: "Municipalidades", p2d: "Prioriza alertas y patrullajes por departamento.",
+      p3t: "Áreas protegidas", p3d: "Vigila focos en Petén y reservas antes de que crezcan.",
+      p4t: "Bomberos y brigadas", p4d: "Anticipa los días críticos y ubica recursos a tiempo.", btn: "EN", btnLabel: "Switch to English",
       title: "FuegoAlerta GT · Vigila el clima, cuida tu tierra",
     },
     en: {
@@ -28,7 +33,12 @@
       f1t: "Daily weather", f1d: "Temperature, humidity, rain and wind from NASA POWER for every department.",
       f2t: "Hotspots", f2d: "MODIS and VIIRS detections from NASA FIRMS over the last 24 hours.",
       f3t: "Risk & forecast", f3d: "Daily risk level, critical days and one concrete action to prevent fires.",
-      endA: "From satellite", endB: "to your land.", btn: "ES", btnLabel: "Cambiar a español",
+      endA: "From satellite", endB: "to your land.",
+      pubA: "Built for those who", pubB: "care for the land.",
+      p1t: "Farmers", p1d: "Plan burns and fieldwork on the lowest-risk days.",
+      p2t: "Municipalities", p2d: "Prioritize alerts and patrols by department.",
+      p3t: "Protected areas", p3d: "Watch hotspots in Petén and reserves before they spread.",
+      p4t: "Firefighters & crews", p4d: "See critical days ahead and position resources in time.", btn: "ES", btnLabel: "Cambiar a español",
       title: "FuegoAlerta GT · Track the weather, track your land",
     },
   };
@@ -38,7 +48,6 @@
   function aplicarIdioma() {
     const t = TXT[lang];
     document.documentElement.lang = lang;
-    document.title = t.title;
     document.querySelectorAll("[data-t]").forEach((el) => { if (t[el.dataset.t]) el.textContent = t[el.dataset.t]; });
     $("#idioma").textContent = t.btn;
     $("#idioma").setAttribute("aria-label", t.btnLabel);

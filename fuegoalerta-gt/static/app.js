@@ -310,7 +310,7 @@ function pintarSatelite() {
     mapaSat.createPane("focos"); mapaSat.getPane("focos").style.zIndex = 460;
     // Capas base de NASA GIBS (+ calles). Inicia con MODIS Terra color real.
     const terra = L.tileLayer(gibs("MODIS_Terra_CorrectedReflectance_TrueColor", f, 9, "jpg"), { maxNativeZoom: 9, maxZoom: 12, attribution: attr + " · MODIS Terra " + f });
-    const viirs = L.tileLayer(gibs("VIIRS_SNPP_CorrectedReflectance_TrueColor", f, 9, "jpg"), { maxNativeZoom: 9, maxZoom: 12, attribution: attr + " · VIIRS " + f });
+    const viirs = L.tileLayer(gibs("VIIRS_NOAA20_CorrectedReflectance_TrueColor", f, 9, "jpg"), { maxNativeZoom: 9, maxZoom: 12, attribution: attr + " · VIIRS " + f });
     const relieve = L.tileLayer(gibs("BlueMarble_ShadedRelief_Bathymetry", null, 8, "jpeg"), { maxNativeZoom: 8, maxZoom: 12, attribution: attr });
     const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" });
     viirs.addTo(mapaSat);   // VIIRS por defecto: cubre todo el país sin franjas negras (MODIS deja huecos entre pasadas)
@@ -318,7 +318,7 @@ function pintarSatelite() {
     capaFocosModis = L.layerGroup().addTo(mapaSat);
     capaSat = L.layerGroup();                       // riesgo por departamento (opcional)
     L.control.layers(
-      { "Satélite VIIRS (color real)": viirs, "Satélite MODIS Terra (color real)": terra, "Relieve (NASA Blue Marble)": relieve, "Calles (OpenStreetMap)": osm },
+      { "Satélite VIIRS NOAA-20 (color real)": viirs, "Satélite MODIS Terra (color real)": terra, "Relieve (NASA Blue Marble)": relieve, "Calles (OpenStreetMap)": osm },
       { "Focos VIIRS · últimas 24 h": capaFocosViirs, "Focos MODIS · últimas 24 h": capaFocosModis, "Riesgo por departamento": capaSat },
       { collapsed: true }
     ).addTo(mapaSat);
